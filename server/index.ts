@@ -38,8 +38,10 @@ app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
     sheetsConfigured: config.configured,
-    sheetId: process.env.GOOGLE_SHEETS_ID ?? null,
+    sheetId: process.env.GOOGLE_SHEETS_ID?.trim() || null,
     credentialMethod: config.credentialMethod,
+    credentialSource: config.credentialSource,
+    envPresent: config.envPresent,
     missing: config.configured ? [] : config.missing,
   });
 });
