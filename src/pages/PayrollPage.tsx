@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   getDailyPayroll,
@@ -9,11 +9,20 @@ import {
 import { PayrollSummaryCards } from '@/components/payroll/PayrollSummaryCards';
 import { PayrollTable } from '@/components/payroll/PayrollTable';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { PayrollLockScreen } from '@/components/auth/PayrollLockScreen';
+import { isPayrollUnlocked, PAYROLL_LOCK_CHANGED_EVENT } from '@/lib/payrollLockSession';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useActualWorkVersion } from '@/contexts/ActualWorkContext';
 import { usePayrollAdjustments } from '@/contexts/PayrollAdjustmentsContext';
 
 export function PayrollPage() {
+  const [unlocked, setUnlocked] = useState(isPayrollUnlocked);
+
+  useEffect(() => {
+    const sync = () => setUnlocked(isPayrollUnlocked());
+    window.addEventListener(PAYROLL_LOCK_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(PAYROLL_LOCK_CHANGED_EVENT, sync);
+  }, []);
   const { version: employeeVersion } = useEmployees();
   const actualWorkVersion = useActualWorkVersion();
   const { version: adjustmentVersion } = usePayrollAdjustments();
@@ -88,6 +97,10 @@ export function PayrollPage() {
     weekly: '주간',
     monthly: '월간',
   };
+
+  if (!unlocked) {
+    return <PayrollLockScreen onUnlock={() => setUnlocked(true)} />;
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">

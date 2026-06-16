@@ -5,11 +5,17 @@ import {
   LayoutDashboard,
   Wallet,
   Settings,
-  LogOut,
+  Lock,
   Coffee,
 } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import type { PageId } from '@/types';
 import { SyncStatusBadge } from '@/components/layout/SyncStatusBadge';
+import {
+  isPayrollUnlocked,
+  lockPayroll,
+  PAYROLL_LOCK_CHANGED_EVENT,
+} from '@/lib/payrollLockSession';
 
 interface NavItem {
   id: PageId;
@@ -32,6 +38,21 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
+  const [payrollUnlocked, setPayrollUnlocked] = useState(isPayrollUnlocked);
+
+  useEffect(() => {
+    const sync = () => setPayrollUnlocked(isPayrollUnlocked());
+    window.addEventListener(PAYROLL_LOCK_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(PAYROLL_LOCK_CHANGED_EVENT, sync);
+  }, []);
+
+  const handleLockPayroll = () => {
+    lockPayroll();
+    if (currentPage === 'payroll') {
+      onNavigate('schedule');
+    }
+  };
+
   return (
     <aside className="w-[220px] h-full bg-white border-r border-stone-200/60 flex flex-col shrink-0 shadow-sm">
       <div className="px-5 py-6 border-b border-stone-200/80">
@@ -70,10 +91,16 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       <SyncStatusBadge />
 
       <div className="px-3 pb-5">
-        <button className="nav-item nav-item-inactive border border-stone-200/80">
-          <LogOut size={18} strokeWidth={1.75} className="text-stone-400" />
-          <span>로그아웃</span>
-        </button>
+        {payrollUnlocked ? (
+          <button
+            type="button"
+            onClick={handleLockPayroll}
+            className="nav-item nav-item-inactive border border-stone-200/80 w-full"
+          >
+            <Lock size={18} strokeWidth={1.75} className="text-stone-400" />
+            <span>급여 잠금</span>
+          </button>
+        ) : null}
       </div>
     </aside>
   );
