@@ -5,7 +5,7 @@ import {
   fromRemotePayload,
   pushRemoteData,
   toRemotePayload,
-} from '@/lib/sheetsApi';
+} from '@/lib/supabaseApi';
 import { enrichActualWorkRecord } from '@/lib/actualWork';
 import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
 import { ACTUAL_WORK_CHANGED_EVENT } from '@/lib/actualWork';
@@ -147,7 +147,7 @@ async function pushNow(): Promise<void> {
   } catch (error) {
     setSyncState({
       status: 'error',
-      error: error instanceof Error ? error.message : 'Failed to sync with Google Sheets',
+      error: error instanceof Error ? error.message : 'Failed to sync with Supabase',
       isOnline: false,
     });
   } finally {
@@ -185,7 +185,7 @@ async function pullRemote(): Promise<void> {
   } catch (error) {
     setSyncState({
       isOnline: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch Google Sheets data',
+      error: error instanceof Error ? error.message : 'Failed to fetch Supabase data',
     });
   }
 }
@@ -208,7 +208,7 @@ export async function initDataStore(defaultData: AppStorage): Promise<void> {
     initialized = true;
     setSyncState({
       status: 'error',
-      error: 'Google Sheets API에 연결할 수 없습니다. 서버를 실행하고 .env를 확인하세요.',
+      error: 'Supabase에 연결할 수 없습니다. VITE_SUPABASE_URL과 VITE_SUPABASE_ANON_KEY를 확인하세요.',
       isOnline: false,
     });
     return;
@@ -246,7 +246,7 @@ export async function initDataStore(defaultData: AppStorage): Promise<void> {
     initialized = true;
     setSyncState({
       status: 'error',
-      error: error instanceof Error ? error.message : 'Failed to initialize Google Sheets',
+      error: error instanceof Error ? error.message : 'Failed to initialize Supabase',
       isOnline: false,
     });
   }

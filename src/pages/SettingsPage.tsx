@@ -44,7 +44,7 @@ const SECTIONS: { id: SettingsSectionId; label: string; icon: typeof Building2 }
   { id: 'schedule', label: '스케줄 설정', icon: Calendar },
   { id: 'positions', label: '직책 관리', icon: Users },
   { id: 'shifts', label: '근무 유형', icon: Clock },
-  { id: 'sheets', label: 'Google Sheets', icon: Cloud },
+  { id: 'sheets', label: '클라우드 동기화', icon: Cloud },
   { id: 'backup', label: '백업 / 복원', icon: Database },
   { id: 'password', label: '비밀번호 변경', icon: KeyRound },
   { id: 'theme', label: '테마 설정', icon: Palette },
@@ -79,13 +79,13 @@ export function SettingsPage() {
 
   const handleSave = () => {
     save(draft);
-    setSavedMessage('Google Sheets에 저장되었습니다.');
+    setSavedMessage('Supabase에 저장되었습니다.');
     setTimeout(() => setSavedMessage(''), 2500);
   };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <PageHeader title="설정" subtitle="모든 설정은 Google Sheets에 저장됩니다">
+      <PageHeader title="설정" subtitle="모든 설정은 Supabase에 저장됩니다">
         <div className="flex items-center gap-2">
           {savedMessage && (
             <span className="text-xs text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg">
@@ -163,7 +163,7 @@ export function SettingsPage() {
                 onChange={(shiftTypes) => patchDraft({ shiftTypes })}
               />
             )}
-            {active === 'sheets' && <GoogleSheetsSection />}
+            {active === 'sheets' && <CloudSyncSection />}
             {active === 'backup' && <BackupSection />}
             {active === 'password' && <PasswordSection />}
             {active === 'theme' && (
@@ -566,19 +566,19 @@ function ShiftTypesSection({
   );
 }
 
-function GoogleSheetsSection() {
+function CloudSyncSection() {
   const { isOnline, lastSyncAt, error, forceSync } = useDataSync();
-  const apiUrl = import.meta.env.VITE_API_URL || '(same-origin /api)';
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '(미설정)';
 
   return (
-    <SectionCard title="Google Sheets 상태" description="데이터베이스 연결">
+    <SectionCard title="Supabase 동기화" description="집·매장·휴대폰에서 동일한 데이터">
       <dl className="grid grid-cols-[120px_1fr] gap-3 text-sm">
         <dt className="text-stone-500">상태</dt>
         <dd className={isOnline ? 'text-emerald-700' : 'text-rose-600'}>
           {isOnline ? '연결됨' : '오프라인'}
         </dd>
-        <dt className="text-stone-500">API</dt>
-        <dd className="text-stone-700 break-all">{apiUrl}</dd>
+        <dt className="text-stone-500">Supabase</dt>
+        <dd className="text-stone-700 break-all">{supabaseUrl}</dd>
         <dt className="text-stone-500">마지막 동기화</dt>
         <dd className="text-stone-700">
           {lastSyncAt ? new Date(lastSyncAt).toLocaleString('ko-KR') : '아직 없음'}
