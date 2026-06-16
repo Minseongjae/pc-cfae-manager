@@ -9,9 +9,23 @@ function normalizePrivateKey(raw: string): string {
   return raw.replace(/\\n/g, '\n');
 }
 
+function trimJsonEnv(raw: string): string {
+  let value = raw.trim();
+  if (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  ) {
+    value = value.slice(1, -1);
+  }
+  return value;
+}
+
 function parseServiceAccountJson(raw: string): ServiceAccountCredentials | null {
+  const normalized = trimJsonEnv(raw);
+  if (!normalized) return null;
+
   try {
-    const creds = JSON.parse(raw) as ServiceAccountCredentials;
+    const creds = JSON.parse(normalized) as ServiceAccountCredentials;
     if (creds.client_email && creds.private_key) {
       return {
         client_email: creds.client_email,
@@ -74,9 +88,7 @@ export function getSheetsConfigStatus(): {
   } else if (process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY) {
     credentialMethod = 'split-env';
   } else {
-    missing.push(
-      'GOOGLE_SERVICE_ACCOUNT_JSON (recommended on Railway) OR GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY'
-    );
+    missing.push('GOOGLE_SERVICE_ACCOUNT_JSON');
   }
 
   if (
@@ -84,7 +96,7 @@ export function getSheetsConfigStatus(): {
     !fs.existsSync(process.env.GOOGLE_APPLICATION_CREDENTIALS)
   ) {
     missing.push(
-      'GOOGLE_APPLICATION_CREDENTIALS points to a missing file (remove on Railway; use JSON or split env vars)'
+      'Remove GOOGLE_APPLICATION_CREDENTIALS on Railway; use GOOGLE_SERVICE_ACCOUNT_JSON instead'
     );
   }
 

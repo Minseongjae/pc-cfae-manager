@@ -1,5 +1,20 @@
 # Railway Environment Variables
 
+Railway **Suggested Variables**는 자동 적용되지 않습니다. **Variables → + New Variable**에서 직접 추가하세요.
+
+**Railway에서는 `GOOGLE_APPLICATION_CREDENTIALS`(파일 경로)를 사용하지 마세요.**  
+대신 **`GOOGLE_SERVICE_ACCOUNT_JSON`** 에 서비스 계정 JSON 전체를 문자열로 넣습니다.
+
+### 로컬에서 Railway용 env 파일 생성
+
+```powershell
+npm run write:railway-env -- C:\Users\pc\Downloads\pro-cafe-manager-0d03cf04ab83.json
+```
+
+생성된 `.env.railway.local` 내용을 Railway **Variables → Raw Editor**에 붙여넣으세요.
+
+---
+
 Railway **Suggested Variables** are hints only — nothing is applied until you add variables yourself.
 
 After adding variables, redeploy (or wait for auto-redeploy) and check:

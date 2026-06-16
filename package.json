@@ -12,6 +12,8 @@
     "dev:all": "npm run dev",
     "verify:sheets": "tsx scripts/verify-sheets.ts",
     "verify:schedule-range": "tsx scripts/verify-schedule-range.ts",
+    "prepare:railway-env": "tsx scripts/prepare-railway-env.ts",
+    "write:railway-env": "tsx scripts/write-railway-dotenv.ts",
     "build": "tsc && vite build",
     "build:server": "tsc -p server/tsconfig.json",
     "preview": "vite preview",
