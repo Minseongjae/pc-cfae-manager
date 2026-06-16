@@ -8,14 +8,10 @@ import {
   Lock,
   Coffee,
 } from 'lucide-react';
-import { useEffect, useState } from 'react';
 import type { PageId } from '@/types';
 import { SyncStatusBadge } from '@/components/layout/SyncStatusBadge';
-import {
-  isPayrollUnlocked,
-  lockPayroll,
-  PAYROLL_LOCK_CHANGED_EVENT,
-} from '@/lib/payrollLockSession';
+import { useAdminLock } from '@/hooks/useAdminLock';
+import { isProtectedPage, lockAdmin } from '@/lib/adminLockSession';
 
 interface NavItem {
   id: PageId;
@@ -38,17 +34,11 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
-  const [payrollUnlocked, setPayrollUnlocked] = useState(isPayrollUnlocked);
+  const adminUnlocked = useAdminLock();
 
-  useEffect(() => {
-    const sync = () => setPayrollUnlocked(isPayrollUnlocked());
-    window.addEventListener(PAYROLL_LOCK_CHANGED_EVENT, sync);
-    return () => window.removeEventListener(PAYROLL_LOCK_CHANGED_EVENT, sync);
-  }, []);
-
-  const handleLockPayroll = () => {
-    lockPayroll();
-    if (currentPage === 'payroll') {
+  const handleLockAdmin = () => {
+    lockAdmin();
+    if (isProtectedPage(currentPage)) {
       onNavigate('schedule');
     }
   };
@@ -91,14 +81,14 @@ export function Sidebar({ currentPage, onNavigate }: SidebarProps) {
       <SyncStatusBadge />
 
       <div className="px-3 pb-5">
-        {payrollUnlocked ? (
+        {adminUnlocked ? (
           <button
             type="button"
-            onClick={handleLockPayroll}
+            onClick={handleLockAdmin}
             className="nav-item nav-item-inactive border border-stone-200/80 w-full"
           >
             <Lock size={18} strokeWidth={1.75} className="text-stone-400" />
-            <span>급여 잠금</span>
+            <span>관리자 잠금</span>
           </button>
         ) : null}
       </div>

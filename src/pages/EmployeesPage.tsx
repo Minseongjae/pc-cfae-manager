@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Plus, Search, Pencil } from 'lucide-react';
+import { Plus, Search, Pencil, Users } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
+import { AdminLockScreen } from '@/components/auth/AdminLockScreen';
+import { useAdminLock } from '@/hooks/useAdminLock';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import {
   getPositionLabel,
@@ -43,6 +45,7 @@ function formatHireDate(date: string): string {
 }
 
 export function EmployeesPage() {
+  const unlocked = useAdminLock();
   const { employees, openCreate, openEdit } = useEmployees();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EmployeeStatus | 'all'>('all');
@@ -68,6 +71,16 @@ export function EmployeesPage() {
       resigned: employees.filter((e) => e.status === 'resigned').length,
     };
   }, [employees]);
+
+  if (!unlocked) {
+    return (
+      <AdminLockScreen
+        title="직원 관리"
+        description="직원 정보는 관리자만 열람할 수 있습니다."
+        icon={Users}
+      />
+    );
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">

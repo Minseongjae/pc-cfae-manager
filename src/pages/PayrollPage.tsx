@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import {
   getDailyPayroll,
@@ -9,20 +9,15 @@ import {
 import { PayrollSummaryCards } from '@/components/payroll/PayrollSummaryCards';
 import { PayrollTable } from '@/components/payroll/PayrollTable';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { PayrollLockScreen } from '@/components/auth/PayrollLockScreen';
-import { isPayrollUnlocked, PAYROLL_LOCK_CHANGED_EVENT } from '@/lib/payrollLockSession';
+import { AdminLockScreen } from '@/components/auth/AdminLockScreen';
+import { useAdminLock } from '@/hooks/useAdminLock';
+import { Wallet } from 'lucide-react';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useActualWorkVersion } from '@/contexts/ActualWorkContext';
 import { usePayrollAdjustments } from '@/contexts/PayrollAdjustmentsContext';
 
 export function PayrollPage() {
-  const [unlocked, setUnlocked] = useState(isPayrollUnlocked);
-
-  useEffect(() => {
-    const sync = () => setUnlocked(isPayrollUnlocked());
-    window.addEventListener(PAYROLL_LOCK_CHANGED_EVENT, sync);
-    return () => window.removeEventListener(PAYROLL_LOCK_CHANGED_EVENT, sync);
-  }, []);
+  const unlocked = useAdminLock();
   const { version: employeeVersion } = useEmployees();
   const actualWorkVersion = useActualWorkVersion();
   const { version: adjustmentVersion } = usePayrollAdjustments();
@@ -99,7 +94,13 @@ export function PayrollPage() {
   };
 
   if (!unlocked) {
-    return <PayrollLockScreen onUnlock={() => setUnlocked(true)} />;
+    return (
+      <AdminLockScreen
+        title="급여 관리"
+        description="급여 정보는 관리자만 열람할 수 있습니다."
+        icon={Wallet}
+      />
+    );
   }
 
   return (
