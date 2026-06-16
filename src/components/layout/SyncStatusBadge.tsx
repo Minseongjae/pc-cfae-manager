@@ -10,7 +10,7 @@ export function SyncStatusBadge() {
       : status === 'syncing'
         ? '동기화 중'
         : isOnline
-          ? 'Supabase'
+          ? 'Google Sheets'
           : '오프라인';
 
   const Icon =

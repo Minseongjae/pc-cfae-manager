@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { AuthProvider } from '@/contexts/AuthContext';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { EmployeesProvider } from '@/contexts/EmployeesContext';
 import { DragGuardProvider } from '@/contexts/DragGuardContext';
@@ -29,22 +28,20 @@ export default function App() {
   const PageComponent = pages[currentPage];
 
   return (
-    <AuthProvider>
-      <DragGuardProvider>
-        <DataSyncProvider>
-          <SettingsProvider>
-            <EmployeesProvider>
-              <ActualWorkProvider>
-                <PayrollAdjustmentsProvider>
-                  <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
-                    <PageComponent />
-                  </AppLayout>
-                </PayrollAdjustmentsProvider>
-              </ActualWorkProvider>
-            </EmployeesProvider>
-          </SettingsProvider>
-        </DataSyncProvider>
-      </DragGuardProvider>
-    </AuthProvider>
+    <DragGuardProvider>
+      <DataSyncProvider>
+        <SettingsProvider>
+          <EmployeesProvider>
+            <ActualWorkProvider>
+              <PayrollAdjustmentsProvider>
+                <AppLayout currentPage={currentPage} onNavigate={setCurrentPage}>
+                  <PageComponent />
+                </AppLayout>
+              </PayrollAdjustmentsProvider>
+            </ActualWorkProvider>
+          </EmployeesProvider>
+        </SettingsProvider>
+      </DataSyncProvider>
+    </DragGuardProvider>
   );
 }

@@ -4,7 +4,6 @@ import {
   Calendar,
   Cloud,
   Database,
-  KeyRound,
   Palette,
   Save,
   Shield,
@@ -15,7 +14,6 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { NumericInput } from '@/components/ui/NumericInput';
 import { useDataSync } from '@/contexts/DataSyncContext';
 import { useSettings } from '@/contexts/SettingsContext';
-import { useAuth } from '@/contexts/AuthContext';
 import type {
   AppSettings,
   PayrollSettings,
@@ -35,7 +33,6 @@ type SettingsSectionId =
   | 'shifts'
   | 'sheets'
   | 'backup'
-  | 'password'
   | 'theme';
 
 const SECTIONS: { id: SettingsSectionId; label: string; icon: typeof Building2 }[] = [
@@ -46,7 +43,6 @@ const SECTIONS: { id: SettingsSectionId; label: string; icon: typeof Building2 }
   { id: 'shifts', label: '근무 유형', icon: Clock },
   { id: 'sheets', label: '클라우드 동기화', icon: Cloud },
   { id: 'backup', label: '백업 / 복원', icon: Database },
-  { id: 'password', label: '비밀번호 변경', icon: KeyRound },
   { id: 'theme', label: '테마 설정', icon: Palette },
 ];
 
@@ -79,13 +75,13 @@ export function SettingsPage() {
 
   const handleSave = () => {
     save(draft);
-    setSavedMessage('Supabase에 저장되었습니다.');
+    setSavedMessage('Google Sheets에 저장되었습니다.');
     setTimeout(() => setSavedMessage(''), 2500);
   };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <PageHeader title="설정" subtitle="모든 설정은 Supabase에 저장됩니다">
+      <PageHeader title="설정" subtitle="모든 설정은 Google Sheets에 저장됩니다">
         <div className="flex items-center gap-2">
           {savedMessage && (
             <span className="text-xs text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-lg">
@@ -165,7 +161,6 @@ export function SettingsPage() {
             )}
             {active === 'sheets' && <CloudSyncSection />}
             {active === 'backup' && <BackupSection />}
-            {active === 'password' && <PasswordSection />}
             {active === 'theme' && (
               <ThemeSection
                 value={draft.theme}
@@ -568,17 +563,16 @@ function ShiftTypesSection({
 
 function CloudSyncSection() {
   const { isOnline, lastSyncAt, error, forceSync } = useDataSync();
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '(미설정)';
 
   return (
-    <SectionCard title="Supabase 동기화" description="집·매장·휴대폰에서 동일한 데이터">
+    <SectionCard title="Google Sheets 동기화" description="집·매장·휴대폰에서 동일한 데이터">
       <dl className="grid grid-cols-[120px_1fr] gap-3 text-sm">
         <dt className="text-stone-500">상태</dt>
         <dd className={isOnline ? 'text-emerald-700' : 'text-rose-600'}>
           {isOnline ? '연결됨' : '오프라인'}
         </dd>
-        <dt className="text-stone-500">Supabase</dt>
-        <dd className="text-stone-700 break-all">{supabaseUrl}</dd>
+        <dt className="text-stone-500">저장소</dt>
+        <dd className="text-stone-700">Google Sheets (Vercel API)</dd>
         <dt className="text-stone-500">마지막 동기화</dt>
         <dd className="text-stone-700">
           {lastSyncAt ? new Date(lastSyncAt).toLocaleString('ko-KR') : '아직 없음'}
@@ -627,88 +621,6 @@ function BackupSection() {
       </div>
       {message && <p className="text-xs text-stone-600">{message}</p>}
     </SectionCard>
-  );
-}
-
-function PasswordSection() {
-  const { changePassword, settings } = useSettings();
-  const { logout, sessionExpiresAt } = useAuth();
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [message, setMessage] = useState('');
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (newPassword !== confirmPassword) {
-      setMessage('새 비밀번호 확인이 일치하지 않습니다.');
-      return;
-    }
-    const result = await changePassword(currentPassword, newPassword);
-    setMessage(result.message);
-    if (result.ok) {
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <SectionCard title="앱 잠금" description="이 기기의 로그인 세션">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <p className="text-sm text-stone-700">현재 로그인 상태입니다.</p>
-            {sessionExpiresAt && (
-              <p className="text-xs text-stone-500 mt-1">
-                세션 만료: {sessionExpiresAt.toLocaleString('ko-KR')}
-              </p>
-            )}
-          </div>
-          <button type="button" onClick={logout} className="btn-secondary text-sm shrink-0">
-            로그아웃
-          </button>
-        </div>
-      </SectionCard>
-
-      <SectionCard
-        title="비밀번호 변경"
-        description={settings.security.passwordHash ? '비밀번호가 설정되어 있습니다.' : '아직 비밀번호가 없습니다.'}
-      >
-        <form onSubmit={handleSubmit} className="space-y-4 max-w-md">
-          {settings.security.passwordHash && (
-            <Field label="현재 비밀번호">
-              <input
-                type="password"
-                className="input-luxury"
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-              />
-            </Field>
-          )}
-          <Field label="새 비밀번호">
-            <input
-              type="password"
-              className="input-luxury"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-          </Field>
-          <Field label="새 비밀번호 확인">
-            <input
-              type="password"
-              className="input-luxury"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
-          </Field>
-          <button type="submit" className="btn-primary text-sm">
-            비밀번호 저장
-          </button>
-          {message && <p className="text-xs text-stone-600">{message}</p>}
-        </form>
-      </SectionCard>
-    </div>
   );
 }
 

@@ -76,8 +76,8 @@ export async function checkApiHealth(): Promise<boolean> {
   try {
     const response = await fetch(`${API_BASE}/api/health`);
     if (!response.ok) return false;
-    const body = (await response.json()) as { ok?: boolean };
-    return body.ok === true;
+    const body = (await response.json()) as { ok?: boolean; sheetsConfigured?: boolean };
+    return body.ok === true && body.sheetsConfigured === true;
   } catch {
     return false;
   }

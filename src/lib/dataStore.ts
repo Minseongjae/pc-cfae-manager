@@ -5,7 +5,7 @@ import {
   fromRemotePayload,
   pushRemoteData,
   toRemotePayload,
-} from '@/lib/supabaseApi';
+} from '@/lib/sheetsApi';
 import { enrichActualWorkRecord } from '@/lib/actualWork';
 import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
 import { ACTUAL_WORK_CHANGED_EVENT } from '@/lib/actualWork';
@@ -15,9 +15,12 @@ import { SETTINGS_CHANGED_EVENT, applyThemeSettings } from '@/lib/appSettings';
 export const DATA_SYNC_CHANGED_EVENT = 'data-sync-changed';
 export const SCHEDULES_CHANGED_EVENT = 'schedules-changed';
 
-const LEGACY_STORAGE_KEY = '1pc-cafe-manager-data';
-const PUSH_DEBOUNCE_MS = 700;
-const POLL_INTERVAL_MS = 10_000;
+/** One-time migration from old localStorage only — never used as primary storage. */
+const LEGACY_MIGRATION_KEY = '1pc-cafe-manager-data';
+
+const PUSH_DEBOUNCE_MS = 500;
+const POLL_INTERVAL_MS = 8_000;
+const MAX_PUSH_RETRIES = 6;
 
 export type SyncStatus = 'idle' | 'loading' | 'syncing' | 'error';
 
@@ -38,6 +41,7 @@ let syncState: SyncState = {
   isOnline: false,
 };
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
+let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pushInFlight = false;
 let initialized = false;
@@ -65,9 +69,9 @@ function setSyncState(patch: Partial<SyncState>): void {
   notifySyncChanged();
 }
 
-function readLegacyStorage(): AppStorage | null {
+function readLegacyMigration(): AppStorage | null {
   try {
-    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
+    const raw = localStorage.getItem(LEGACY_MIGRATION_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as AppStorage;
   } catch {
@@ -75,8 +79,8 @@ function readLegacyStorage(): AppStorage | null {
   }
 }
 
-function clearLegacyStorage(): void {
-  localStorage.removeItem(LEGACY_STORAGE_KEY);
+function clearLegacyMigration(): void {
+  localStorage.removeItem(LEGACY_MIGRATION_KEY);
 }
 
 function dispatchDataEvents(previous: AppStorage | null, next: AppStorage): void {
@@ -131,12 +135,24 @@ export function writeCache(data: AppStorage): void {
   dispatchDataEvents(previous, cache);
 }
 
-async function pushNow(): Promise<void> {
+function scheduleRetry(attempt: number): void {
+  if (retryTimer) clearTimeout(retryTimer);
+  const delayMs = Math.min(15_000, 2_000 * (attempt + 1));
+  retryTimer = setTimeout(() => {
+    pushNow(attempt + 1).catch(console.error);
+  }, delayMs);
+}
+
+async function pushNow(attempt = 0): Promise<void> {
   if (!cache || pushInFlight) return;
   pushInFlight = true;
   setSyncState({ status: 'syncing', error: null });
   try {
     const syncToken = await pushRemoteData(toRemotePayload(cache));
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
     setSyncState({
       status: 'idle',
       lastSyncAt: new Date().toISOString(),
@@ -145,11 +161,15 @@ async function pushNow(): Promise<void> {
       error: null,
     });
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'Google Sheets 저장 실패';
     setSyncState({
       status: 'error',
-      error: error instanceof Error ? error.message : 'Failed to sync with Supabase',
+      error: message,
       isOnline: false,
     });
+    if (attempt < MAX_PUSH_RETRIES) {
+      scheduleRetry(attempt);
+    }
   } finally {
     pushInFlight = false;
   }
@@ -158,8 +178,17 @@ async function pushNow(): Promise<void> {
 function queuePush(): void {
   if (pushTimer) clearTimeout(pushTimer);
   pushTimer = setTimeout(() => {
+    pushTimer = null;
     pushNow().catch(console.error);
   }, PUSH_DEBOUNCE_MS);
+}
+
+export async function flushPush(): Promise<void> {
+  if (pushTimer) {
+    clearTimeout(pushTimer);
+    pushTimer = null;
+  }
+  await pushNow();
 }
 
 async function pullRemote(): Promise<void> {
@@ -185,7 +214,7 @@ async function pullRemote(): Promise<void> {
   } catch (error) {
     setSyncState({
       isOnline: false,
-      error: error instanceof Error ? error.message : 'Failed to fetch Supabase data',
+      error: error instanceof Error ? error.message : 'Google Sheets 불러오기 실패',
     });
   }
 }
@@ -194,6 +223,9 @@ function startPolling(): void {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(() => {
     pullRemote().catch(console.error);
+    if (syncState.status === 'error' && !pushInFlight) {
+      pushNow().catch(console.error);
+    }
   }, POLL_INTERVAL_MS);
 }
 
@@ -203,12 +235,12 @@ export async function initDataStore(defaultData: AppStorage): Promise<void> {
 
   const online = await checkApiHealth();
   if (!online) {
-    const legacy = readLegacyStorage();
-    cache = enrichAttendance(legacy ?? defaultData);
     initialized = true;
+    cache = enrichAttendance(defaultData);
     setSyncState({
       status: 'error',
-      error: 'Supabase에 연결할 수 없습니다. VITE_SUPABASE_URL과 VITE_SUPABASE_ANON_KEY를 확인하세요.',
+      error:
+        'Google Sheets에 연결할 수 없습니다. Vercel 환경변수(GOOGLE_SHEETS_ID, GOOGLE_SERVICE_ACCOUNT_JSON)를 확인하세요.',
       isOnline: false,
     });
     return;
@@ -223,11 +255,11 @@ export async function initDataStore(defaultData: AppStorage): Promise<void> {
       remote.payrollAdjustmentRecords.length === 0;
 
     if (isEmpty) {
-      const legacy = readLegacyStorage();
+      const legacy = readLegacyMigration();
       const seed = legacy ?? defaultData;
       const syncToken = await pushRemoteData(toRemotePayload(seed));
       remote = { ...toRemotePayload(seed), syncToken };
-      clearLegacyStorage();
+      clearLegacyMigration();
     }
 
     cache = enrichAttendance(fromRemotePayload(remote, defaultData));
@@ -241,12 +273,11 @@ export async function initDataStore(defaultData: AppStorage): Promise<void> {
     });
     startPolling();
   } catch (error) {
-    const legacy = readLegacyStorage();
-    cache = enrichAttendance(legacy ?? defaultData);
     initialized = true;
+    cache = enrichAttendance(defaultData);
     setSyncState({
       status: 'error',
-      error: error instanceof Error ? error.message : 'Failed to initialize Supabase',
+      error: error instanceof Error ? error.message : 'Google Sheets 초기화 실패',
       isOnline: false,
     });
   }
@@ -258,6 +289,6 @@ export function stopDataStorePolling(): void {
 }
 
 export async function forceSyncNow(): Promise<void> {
-  await pushNow();
+  await flushPush();
   await pullRemote();
 }
