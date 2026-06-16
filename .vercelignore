@@ -1,0 +1,9 @@
+node_modules
+release
+dist-server
+dist-electron
+.env*
+credentials
+*.db
+*.log
+.git

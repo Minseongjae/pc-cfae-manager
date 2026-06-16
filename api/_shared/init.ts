@@ -1,5 +1,5 @@
-import { getSheetsConfigStatus } from '../server/credentials.js';
-import { initializeSheets } from '../server/sheets.js';
+import { getSheetsConfigStatus } from '../../server/credentials.js';
+import { initializeSheets } from '../../server/sheets.js';
 
 let initPromise: Promise<void> | null = null;
 
@@ -12,7 +12,7 @@ export async function ensureSheetsReady(): Promise<void> {
   }
 
   if (!initPromise) {
-    initPromise = initializeSheets().catch((error) => {
+    initPromise = initializeSheets().catch((error: unknown) => {
       initPromise = null;
       throw error;
     });
