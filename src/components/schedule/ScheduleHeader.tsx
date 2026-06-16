@@ -28,44 +28,47 @@ export function ScheduleHeader({
   onCreateShift,
 }: ScheduleHeaderProps) {
   return (
-    <header className="page-header px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-6">
-          <div>
-            <h1 className="heading-display text-xl">근무 스케줄</h1>
+    <header className="page-header px-4 py-4 md:px-6 shrink-0">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="hidden md:block">
+            <h1 className="heading-display text-lg md:text-xl">근무 스케줄</h1>
             <p className="text-sm text-stone-500 mt-0.5 font-light">
               {year}년 {month}월
             </p>
           </div>
+          <p className="md:hidden text-sm font-medium text-stone-600">
+            {year}년 {month}월
+          </p>
 
-          <div className="flex items-center gap-1 bg-stone-100 rounded-xl p-1">
+          <div className="flex items-center gap-1 bg-stone-100 rounded-xl p-1 self-start">
             <button
               onClick={onPrevMonth}
               disabled={!canGoPrev}
-              className="btn-ghost disabled:opacity-30 disabled:pointer-events-none"
+              className="btn-ghost touch-target disabled:opacity-30 disabled:pointer-events-none"
             >
               <ChevronLeft size={18} />
             </button>
-            <button onClick={onToday} className="btn-secondary text-xs py-1.5 px-3">
+            <button onClick={onToday} className="btn-secondary text-xs md:text-sm touch-target">
               오늘
             </button>
             <button
               onClick={onNextMonth}
               disabled={!canGoNext}
-              className="btn-ghost disabled:opacity-30 disabled:pointer-events-none"
+              className="btn-ghost touch-target disabled:opacity-30 disabled:pointer-events-none"
             >
               <ChevronRight size={18} />
             </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="segment-control">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="segment-control w-full sm:w-auto overflow-x-auto">
             {(['monthly', 'weekly', 'daily'] as ViewMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => onViewModeChange(mode)}
-                className={`segment-item ${
+                className={`segment-item touch-segment shrink-0 ${
                   viewMode === mode ? 'segment-item-active' : ''
                 }`}
               >
@@ -74,7 +77,7 @@ export function ScheduleHeader({
             ))}
           </div>
 
-          <button className="btn-primary" onClick={onCreateShift}>
+          <button className="btn-primary w-full sm:w-auto touch-target justify-center" onClick={onCreateShift}>
             <Plus size={16} strokeWidth={2} />
             근무 추가
           </button>

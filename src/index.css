@@ -16,6 +16,8 @@
   body {
     @apply bg-stone-100 text-stone-700 font-sans antialiased overflow-hidden;
     font-feature-settings: 'kern' 1, 'liga' 1;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   ::-webkit-scrollbar {
@@ -160,5 +162,50 @@
 
   html[data-accent='emerald'] .btn-primary {
     @apply bg-emerald-800 hover:bg-emerald-900;
+  }
+
+  .safe-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+    touch-action: manipulation;
+  }
+
+  .touch-nav {
+    @apply min-h-[48px] py-3 md:min-h-0 md:py-2.5;
+    touch-action: manipulation;
+  }
+
+  .touch-segment {
+    @apply min-h-[44px] px-4 py-2.5 md:min-h-0 md:px-3.5 md:py-2;
+    touch-action: manipulation;
+  }
+
+  @media (max-width: 768px) {
+    .btn-primary {
+      @apply min-h-[44px] px-5 py-3 text-base;
+    }
+
+    .btn-secondary {
+      @apply min-h-[44px] px-5 py-3 text-base;
+    }
+
+    .btn-ghost {
+      @apply min-h-[44px] min-w-[44px] p-3;
+    }
+
+    .input-luxury {
+      @apply min-h-[44px] text-base py-3;
+    }
+
+    .segment-control {
+      @apply p-1.5;
+    }
   }
 }

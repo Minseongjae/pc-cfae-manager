@@ -8,6 +8,7 @@ import {
 } from 'date-fns';
 import { ShiftCard } from './ShiftCard';
 import { shiftRows, type ScheduleShift, type ShiftRowId } from '@/data/mockSchedule';
+import { useIsMobile } from '@/hooks/useIsMobile';
 
 interface ScheduleCalendarProps {
   year: number;
@@ -43,6 +44,10 @@ export function ScheduleCalendar({
   onEditShift,
   onCreateInCell,
 }: ScheduleCalendarProps) {
+  const isMobile = useIsMobile();
+  const dayCellWidth = isMobile ? 108 : DAY_CELL_WIDTH;
+  const rowLabelWidth = isMobile ? 56 : ROW_LABEL_WIDTH;
+
   const { days, shiftsByDayAndRow } = useMemo(() => {
     const start = startOfMonth(new Date(year, month - 1));
     const end = endOfMonth(start);
@@ -61,14 +66,14 @@ export function ScheduleCalendar({
     return { days: allDays, shiftsByDayAndRow: map };
   }, [year, month, shifts]);
 
-  const gridWidth = days.length * DAY_CELL_WIDTH;
+  const gridWidth = days.length * dayCellWidth;
 
   return (
-    <div className="flex-1 overflow-hidden p-4 min-h-0">
+    <div className="flex-1 overflow-hidden p-2 md:p-4 min-h-0">
       <div className="card-elevated h-full flex overflow-hidden">
         <div
           className="shrink-0 flex flex-col border-r border-stone-200 bg-stone-50/50"
-          style={{ width: ROW_LABEL_WIDTH }}
+          style={{ width: rowLabelWidth }}
         >
           <div className="shrink-0 border-b border-stone-200" style={{ height: HEADER_HEIGHT }} />
           {shiftRows.map((row) => (
@@ -99,7 +104,7 @@ export function ScheduleCalendar({
                 return (
                   <div
                     key={dayNum}
-                    style={{ width: DAY_CELL_WIDTH }}
+                    style={{ width: dayCellWidth }}
                     className={`shrink-0 flex items-center justify-center text-sm border-r border-stone-200/80 ${
                       today
                         ? 'bg-stone-700/8 font-semibold text-stone-600'
@@ -135,7 +140,7 @@ export function ScheduleCalendar({
                   return (
                     <div
                       key={cellKey}
-                      style={{ width: DAY_CELL_WIDTH }}
+                      style={{ width: dayCellWidth }}
                       onDragOver={(e) => {
                         e.preventDefault();
                         e.dataTransfer.dropEffect = 'move';
@@ -164,7 +169,7 @@ export function ScheduleCalendar({
                       {cellShifts.length === 0 && onCreateInCell && (
                         <button
                           onClick={() => onCreateInCell(dayNum, row.id)}
-                          className="w-full h-full min-h-[60px] rounded-xl border border-dashed border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-transparent hover:text-stone-400 text-xs transition-all opacity-0 group-hover/cell:opacity-100"
+                          className="w-full h-full min-h-[52px] rounded-xl border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
                         >
                           + 추가
                         </button>

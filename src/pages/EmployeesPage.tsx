@@ -91,8 +91,8 @@ export function EmployeesPage() {
         </button>
       </PageHeader>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4 md:space-y-5">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <SummaryCard label="전체" value={counts.total} />
           <SummaryCard label="근무" value={counts.working} accent="emerald" />
           <SummaryCard label="휴가" value={counts.leave} accent="amber" />
@@ -114,10 +114,10 @@ export function EmployeesPage() {
                 className="input-luxury pl-10 py-2 text-sm"
               />
             </div>
-            <div className="segment-control">
+            <div className="segment-control overflow-x-auto max-w-full">
               <button
                 onClick={() => setStatusFilter('all')}
-                className={`segment-item ${statusFilter === 'all' ? 'segment-item-active' : ''}`}
+                className={`segment-item touch-segment shrink-0 ${statusFilter === 'all' ? 'segment-item-active' : ''}`}
               >
                 전체
               </button>
@@ -125,7 +125,7 @@ export function EmployeesPage() {
                 <button
                   key={status}
                   onClick={() => setStatusFilter(status)}
-                  className={`segment-item ${statusFilter === status ? 'segment-item-active' : ''}`}
+                  className={`segment-item touch-segment shrink-0 ${statusFilter === status ? 'segment-item-active' : ''}`}
                 >
                   {getStatusLabel(status)}
                 </button>
@@ -134,7 +134,7 @@ export function EmployeesPage() {
           </div>
 
           {filtered.length === 0 ? (
-            <div className="p-12 text-center">
+            <div className="p-8 md:p-12 text-center">
               <p className="text-stone-500 text-sm font-light">
                 {employees.length === 0
                   ? '등록된 직원이 없습니다. 직원을 추가해 주세요.'
@@ -142,27 +142,83 @@ export function EmployeesPage() {
               </p>
             </div>
           ) : (
-            <table className="w-full table-luxury">
-              <thead>
-                <tr className="border-b border-stone-200">
-                  <th>이름</th>
-                  <th>직책</th>
-                  <th>시급</th>
-                  <th>전화번호</th>
-                  <th>입사일</th>
-                  <th>상태</th>
-                  <th className="w-16" />
-                </tr>
-              </thead>
-              <tbody>
+            <>
+              <div className="md:hidden divide-y divide-stone-100">
                 {filtered.map((emp) => (
-                  <EmployeeRowItem key={emp.id} employee={emp} onEdit={openEdit} />
+                  <EmployeeCard key={emp.id} employee={emp} onEdit={openEdit} />
                 ))}
-              </tbody>
-            </table>
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full table-luxury min-w-[640px]">
+                  <thead>
+                    <tr className="border-b border-stone-200">
+                      <th>이름</th>
+                      <th>직책</th>
+                      <th>시급</th>
+                      <th>전화번호</th>
+                      <th>입사일</th>
+                      <th>상태</th>
+                      <th className="w-16" />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((emp) => (
+                      <EmployeeRowItem key={emp.id} employee={emp} onEdit={openEdit} />
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function EmployeeCard({
+  employee,
+  onEdit,
+}: {
+  employee: EmployeeRow;
+  onEdit: (employee: EmployeeRow) => void;
+}) {
+  return (
+    <div className="px-4 py-4 flex flex-col gap-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 overflow-x-auto">
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <span className="text-base font-semibold text-stone-800 shrink-0">
+              {employee.name}
+            </span>
+            <span className="text-sm text-stone-500 shrink-0">
+              {getPositionLabel(employee.position)}
+            </span>
+          </div>
+        </div>
+        <StatusBadge status={employee.status} />
+      </div>
+
+      <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2 text-sm">
+        <dt className="text-stone-400">시급</dt>
+        <dd className="text-stone-700 font-medium">
+          ₩{employee.hourlyWage.toLocaleString('ko-KR')}
+        </dd>
+        <dt className="text-stone-400">전화</dt>
+        <dd className="text-stone-600">{employee.phone || '—'}</dd>
+        <dt className="text-stone-400">입사일</dt>
+        <dd className="text-stone-600">{formatHireDate(employee.hireDate)}</dd>
+      </dl>
+
+      <button
+        type="button"
+        onClick={() => onEdit(employee)}
+        className="btn-secondary w-full touch-target justify-center"
+      >
+        <Pencil size={16} />
+        수정
+      </button>
     </div>
   );
 }
@@ -204,8 +260,8 @@ function EmployeeRowItem({
 }) {
   return (
     <tr>
-      <td className="font-medium text-stone-800">{employee.name}</td>
-      <td>{getPositionLabel(employee.position)}</td>
+      <td className="font-medium text-stone-800 whitespace-nowrap">{employee.name}</td>
+      <td className="whitespace-nowrap">{getPositionLabel(employee.position)}</td>
       <td>₩{employee.hourlyWage.toLocaleString('ko-KR')}</td>
       <td className="text-stone-500">{employee.phone || '—'}</td>
       <td className="text-stone-500">{formatHireDate(employee.hireDate)}</td>

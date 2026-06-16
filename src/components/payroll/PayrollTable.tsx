@@ -25,8 +25,8 @@ export function PayrollTable({ summary, period }: PayrollTableProps) {
   }
 
   return (
-    <div className="card overflow-hidden">
-      <table className="w-full table-luxury">
+    <div className="card overflow-hidden overflow-x-auto">
+      <table className="w-full table-luxury min-w-[720px]">
         <thead>
           <tr className="border-b border-stone-200">
             <th className="w-10" />

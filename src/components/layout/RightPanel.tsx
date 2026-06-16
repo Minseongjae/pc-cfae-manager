@@ -8,7 +8,7 @@ import type { EmployeeStatus } from '@/lib/employees';
 
 const PAGE_SIZE = 5;
 
-export function RightPanel() {
+export function RightPanel({ className = '' }: { className?: string }) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [schoolVersion, setSchoolVersion] = useState(0);
@@ -31,7 +31,9 @@ export function RightPanel() {
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <aside className="flex-[1] min-w-[200px] max-w-[260px] h-full flex flex-col shrink-0 overflow-hidden p-4 gap-4">
+    <aside
+      className={`flex-[1] min-w-[200px] max-w-[260px] h-full flex flex-col shrink-0 overflow-hidden p-4 gap-4 ${className}`}
+    >
       <div className="card flex flex-col flex-1 min-h-0 overflow-hidden">
         <div className="px-4 py-4 border-b border-stone-200 flex items-center justify-between">
           <div>
@@ -73,9 +75,13 @@ export function RightPanel() {
                       {emp.name.charAt(0)}
                     </span>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-stone-700 truncate">{emp.name}</p>
-                    <p className="text-[11px] text-stone-400">{getPositionLabel(emp.position)}</p>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium text-stone-700 whitespace-nowrap truncate">
+                      {emp.name}
+                    </p>
+                    <p className="text-[11px] text-stone-400 whitespace-nowrap truncate">
+                      {getPositionLabel(emp.position)}
+                    </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">

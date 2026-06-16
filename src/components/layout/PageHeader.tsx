@@ -8,15 +8,19 @@ interface PageHeaderProps {
 
 export function PageHeader({ title, subtitle, children }: PageHeaderProps) {
   return (
-    <header className="page-header px-6 py-5">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="heading-display text-xl">{title}</h1>
+    <header className="page-header px-4 py-4 md:px-6 md:py-5 shrink-0">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
+          <h1 className="heading-display text-lg md:text-xl hidden md:block">{title}</h1>
           {subtitle && (
-            <p className="text-sm text-stone-500 mt-1 font-light">{subtitle}</p>
+            <p className="text-sm text-stone-500 mt-0 md:mt-1 font-light">{subtitle}</p>
           )}
         </div>
-        {children && <div className="flex items-center gap-3">{children}</div>}
+        {children && (
+          <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center w-full md:w-auto md:justify-end">
+            {children}
+          </div>
+        )}
       </div>
     </header>
   );

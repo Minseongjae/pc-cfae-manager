@@ -105,8 +105,9 @@ export function SettingsPage() {
         </div>
       </PageHeader>
 
-      <div className="flex-1 flex overflow-hidden">
-        <aside className="w-56 shrink-0 border-r border-stone-200 bg-white/70 p-3 space-y-1 overflow-y-auto">
+      <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
+        <aside className="shrink-0 border-b md:border-b-0 md:border-r border-stone-200 bg-white/70 overflow-x-auto md:overflow-y-auto md:w-56">
+          <div className="flex md:flex-col gap-1 p-2 md:p-3 min-w-max md:min-w-0">
           {SECTIONS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -115,7 +116,7 @@ export function SettingsPage() {
                 setActive(id);
                 setDraft(settings);
               }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors ${
+              className={`flex items-center gap-2.5 px-3 py-3 md:py-2.5 rounded-xl text-sm transition-colors touch-nav shrink-0 md:w-full ${
                 active === id
                   ? 'bg-stone-200 text-stone-800 font-medium'
                   : 'text-stone-500 hover:bg-stone-100'
@@ -125,9 +126,10 @@ export function SettingsPage() {
               {label}
             </button>
           ))}
+          </div>
         </aside>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">
           <div className="max-w-3xl">
             {active === 'store' && (
               <StoreSection

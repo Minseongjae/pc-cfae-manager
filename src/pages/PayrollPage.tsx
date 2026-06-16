@@ -137,9 +137,11 @@ export function PayrollPage() {
         </div>
       </PageHeader>
 
-      <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-6">
         <PayrollSummaryCards summary={summary} />
-        <PayrollTable summary={summary} period={period} />
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <PayrollTable summary={summary} period={period} />
+        </div>
       </div>
     </div>
   );
