@@ -1,5 +1,8 @@
-import fs from 'node:fs';
 import { google, type sheets_v4 } from 'googleapis';
+import {
+  getSheetsConfigStatus,
+  loadServiceAccountCredentials,
+} from './credentials.js';
 import { HEADERS, SHEET_NAMES } from './schema.js';
 import {
   attendanceFromRow,
@@ -27,35 +30,13 @@ const EMPTY_APP_SETTINGS: AppSettingsPayload = {
   security: {},
 };
 
-function getPrivateKey(): string {
-  const raw = process.env.GOOGLE_PRIVATE_KEY ?? '';
-  return raw.replace(/\\n/g, '\n');
-}
-
-function loadServiceAccountCredentials(): { email: string; key: string } {
-  const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (credPath && fs.existsSync(credPath)) {
-    const creds = JSON.parse(fs.readFileSync(credPath, 'utf8')) as {
-      client_email?: string;
-      private_key?: string;
-    };
-    if (creds.client_email && creds.private_key) {
-      return { email: creds.client_email, key: creds.private_key };
-    }
-  }
-
-  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? '';
-  const key = getPrivateKey();
-  return { email, key };
-}
-
 function createSheetsClient(): sheets_v4.Sheets {
   const { email, key } = loadServiceAccountCredentials();
   const sheetId = process.env.GOOGLE_SHEETS_ID;
 
   if (!email || !key || !sheetId) {
     throw new Error(
-      'Missing Google Sheets configuration. Set GOOGLE_SHEETS_ID and either GOOGLE_APPLICATION_CREDENTIALS (path to service account JSON) or GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY.'
+      'Missing Google Sheets configuration. Set GOOGLE_SHEETS_ID and either GOOGLE_SERVICE_ACCOUNT_JSON, GOOGLE_APPLICATION_CREDENTIALS (local file path), or GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY.'
     );
   }
 
@@ -289,10 +270,7 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
 }
 
 export function isSheetsConfigured(): boolean {
-  if (!process.env.GOOGLE_SHEETS_ID) return false;
-
-  const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
-  if (credPath && fs.existsSync(credPath)) return true;
-
-  return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY);
+  return getSheetsConfigStatus().configured;
 }
+
+export { getSheetsConfigStatus };

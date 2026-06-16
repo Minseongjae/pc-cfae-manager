@@ -1,19 +1,27 @@
 import 'dotenv/config';
-import { initializeSheets, isSheetsConfigured, readAllData } from '../server/sheets.js';
+import { getSheetsConfigStatus } from '../server/credentials.js';
+import { initializeSheets, readAllData } from '../server/sheets.js';
 
 async function main(): Promise<void> {
   console.log('Checking Google Sheets configuration...\n');
 
-  if (!isSheetsConfigured()) {
-    console.error('Missing configuration. Set in .env:');
+  const config = getSheetsConfigStatus();
+  if (!config.configured) {
+    console.error('Missing configuration:');
+    for (const item of config.missing) {
+      console.error(`  - ${item}`);
+    }
+    console.error('\nLocal dev example (.env):');
     console.error('  GOOGLE_SHEETS_ID=1sWB-yFHwaL3NF5Ury00zTqtJdBxRNGGfNLczbtcQRkA');
     console.error('  GOOGLE_APPLICATION_CREDENTIALS=./credentials/google-service-account.json');
-    console.error('    OR');
-    console.error('  GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY');
+    console.error('\nRailway example (Variables):');
+    console.error('  GOOGLE_SHEETS_ID=1sWB-yFHwaL3NF5Ury00zTqtJdBxRNGGfNLczbtcQRkA');
+    console.error('  GOOGLE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}');
     process.exit(1);
   }
 
   console.log(`Sheet ID: ${process.env.GOOGLE_SHEETS_ID}`);
+  console.log(`Credential method: ${config.credentialMethod}`);
 
   await initializeSheets();
   console.log('Sheets initialized (Employees, Schedule, Attendance, Payroll, Settings)');

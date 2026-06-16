@@ -2,8 +2,8 @@ import 'dotenv/config';
 import cors from 'cors';
 import express from 'express';
 import {
+  getSheetsConfigStatus,
   initializeSheets,
-  isSheetsConfigured,
   readAllData,
   writeAllData,
 } from './sheets.js';
@@ -34,10 +34,13 @@ function requireApiKey(
 }
 
 app.get('/api/health', (_req, res) => {
+  const config = getSheetsConfigStatus();
   res.json({
     ok: true,
-    sheetsConfigured: isSheetsConfigured(),
+    sheetsConfigured: config.configured,
     sheetId: process.env.GOOGLE_SHEETS_ID ?? null,
+    credentialMethod: config.credentialMethod,
+    missing: config.configured ? [] : config.missing,
   });
 });
 
@@ -67,13 +70,18 @@ app.put('/api/data', requireApiKey, async (req, res) => {
 });
 
 async function start(): Promise<void> {
-  if (!isSheetsConfigured()) {
+  const config = getSheetsConfigStatus();
+  if (!config.configured) {
+    console.warn('Google Sheets is not configured. Missing:');
+    for (const item of config.missing) {
+      console.warn(`  - ${item}`);
+    }
     console.warn(
-      'Google Sheets credentials are missing. API will return errors until .env is configured.'
+      'On Railway, set GOOGLE_SHEETS_ID and GOOGLE_SERVICE_ACCOUNT_JSON (do not use GOOGLE_APPLICATION_CREDENTIALS).'
     );
   } else {
     await initializeSheets();
-    console.log('Google Sheets initialized');
+    console.log(`Google Sheets initialized (${config.credentialMethod})`);
   }
 
   app.listen(PORT, () => {
