@@ -1,0 +1,763 @@
+import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
+import { mockShifts } from '@/data/mockSchedule';
+import {
+  calculateShiftHours,
+  resizeShiftEnd,
+  createShiftId,
+  updateShiftDuration,
+} from '@/lib/shiftUtils';
+import { findEmployeeByShiftName } from '@/lib/payroll';
+import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
+import {
+  ACTUAL_WORK_CHANGED_EVENT,
+  enrichActualWorkRecord,
+  getCurrentTimeString,
+  toDateString,
+  type ActualWorkRecord,
+} from '@/lib/actualWork';
+import type { PayrollPeriod } from '@/lib/payroll';
+import {
+  EMPTY_PAYROLL_ADJUSTMENTS,
+  PAYROLL_ADJUSTMENTS_CHANGED_EVENT,
+  type PayrollAdjustmentRecord,
+  type PayrollAdjustments,
+} from '@/lib/payrollAdjustments';
+
+import type { DashboardStats, Employee, ShiftType } from '@/types';
+import { initDataStore, readCache, writeCache } from '@/lib/dataStore';
+import {
+  createDefaultAppSettings,
+  migrateAppSettings,
+  SETTINGS_CHANGED_EVENT,
+  type AppSettings,
+} from '@/lib/appSettings';
+import type {
+  AppStorage,
+  EmployeeInput,
+  EmployeeRow,
+  SchoolSchedule,
+  ShiftInput,
+} from '@/lib/appStorage';
+
+export type { AppStorage, EmployeeInput, EmployeeRow, SchoolSchedule, ShiftInput } from '@/lib/appStorage';
+
+const STORAGE_VERSION = 5;
+
+const SHIFT_COLORS: Record<string, string> = {
+  오후: '#C4A35A',
+  오후메인: '#8B5E3C',
+  미들야간: '#6B7B8C',
+  야간: '#3D4F5F',
+  중간: '#A67C52',
+  오전: '#7BA05B',
+};
+
+function defaultShiftTypes(): ShiftType[] {
+  const weekday = [
+    { name: '오후', start: '14:00', end: '21:00' },
+    { name: '오후메인', start: '15:30', end: '23:00' },
+    { name: '미들야간', start: '21:00', end: '01:00' },
+    { name: '야간', start: '23:00', end: '06:00' },
+  ];
+  const saturday = [
+    { name: '오후', start: '13:00', end: '17:00' },
+    { name: '오후메인', start: '14:00', end: '21:00' },
+    { name: '중간', start: '17:00', end: '01:00' },
+    { name: '미들야간', start: '21:00', end: '03:00' },
+    { name: '야간', start: '00:00', end: '08:00' },
+  ];
+  const sunday = [
+    { name: '오전', start: '08:00', end: '15:00' },
+    { name: '오후', start: '13:00', end: '17:00' },
+    { name: '오후메인', start: '15:00', end: '24:00' },
+    { name: '중간', start: '17:00', end: '21:00' },
+    { name: '미들야간', start: '21:00', end: '01:00' },
+    { name: '야간', start: '00:00', end: '06:00' },
+  ];
+
+  let id = 1;
+  const types: ShiftType[] = [];
+  for (const s of weekday) {
+    types.push({ id: id++, name: s.name, dayType: 'weekday', startTime: s.start, endTime: s.end, color: SHIFT_COLORS[s.name] });
+  }
+  for (const s of saturday) {
+    types.push({ id: id++, name: s.name, dayType: 'saturday', startTime: s.start, endTime: s.end, color: SHIFT_COLORS[s.name] });
+  }
+  for (const s of sunday) {
+    types.push({ id: id++, name: s.name, dayType: 'sunday', startTime: s.start, endTime: s.end, color: SHIFT_COLORS[s.name] });
+  }
+  return types;
+}
+
+function defaultEmployees(): EmployeeRow[] {
+  return [
+    { id: 1, name: '민성재', position: 'manager', phone: '010-1234-0001', hireDate: '2022-03-01', status: 'working', hourlyWage: 11500 },
+    { id: 2, name: '김혜인', position: 'store-manager', phone: '010-1234-0002', hireDate: '2022-06-15', status: 'working', hourlyWage: 12000 },
+    { id: 3, name: '이유진', position: 'staff', phone: '010-1234-0003', hireDate: '2023-01-10', status: 'working', hourlyWage: 10400 },
+    { id: 4, name: '민정환', position: 'staff', phone: '010-1234-0004', hireDate: '2023-04-20', status: 'leave', hourlyWage: 10400 },
+    { id: 5, name: '김다현', position: 'staff', phone: '010-1234-0005', hireDate: '2023-07-01', status: 'working', hourlyWage: 10400 },
+    { id: 6, name: '김유진', position: 'staff', phone: '010-1234-0006', hireDate: '2023-08-15', status: 'working', hourlyWage: 10400 },
+    { id: 7, name: '김주현', position: 'staff', phone: '010-1234-0007', hireDate: '2023-09-01', status: 'leave', hourlyWage: 10400 },
+    { id: 8, name: '이준호', position: 'staff', phone: '010-1234-0008', hireDate: '2024-01-05', status: 'working', hourlyWage: 10400 },
+    { id: 9, name: '한태수', position: 'staff', phone: '010-1234-0009', hireDate: '2024-02-10', status: 'working', hourlyWage: 10400 },
+    { id: 10, name: '이예선', position: 'part-time', phone: '010-1234-0010', hireDate: '2024-03-01', status: 'leave', hourlyWage: 10030 },
+    { id: 11, name: '김지안', position: 'part-time', phone: '010-1234-0011', hireDate: '2024-04-15', status: 'working', hourlyWage: 10030 },
+    { id: 12, name: '박수빈', position: 'part-time', phone: '010-1234-0012', hireDate: '2024-05-01', status: 'working', hourlyWage: 10030 },
+    { id: 13, name: '안보연', position: 'part-time', phone: '010-1234-0013', hireDate: '2024-06-01', status: 'resigned', hourlyWage: 10030 },
+  ];
+}
+function defaultSchoolSchedules(): SchoolSchedule[] {
+  return [
+    { school: '○○고등학교', schedule: '6월 30일 ~ 7월 2일 시험' },
+    { school: '△△중학교', schedule: '7월 15일 ~ 8월 15일 방학' },
+    { school: '□□고등학교', schedule: '6월 20일 ~ 6월 22일 체험학습' },
+    { school: '◇◇중학교', schedule: '7월 1일 ~ 7월 3일 수련활동' },
+  ];
+}
+
+function createDefaultData(): AppStorage {
+  const shiftTypes = defaultShiftTypes();
+  const schoolSchedules = defaultSchoolSchedules();
+  return {
+    version: STORAGE_VERSION,
+    employees: defaultEmployees(),
+    shiftTypes,
+    scheduleShifts: [...mockShifts],
+    schoolSchedules,
+    actualWorkRecords: [],
+    payrollAdjustmentRecords: [],
+    appSettings: createDefaultAppSettings(shiftTypes, schoolSchedules),
+  };
+}
+
+function syncSettingsDerivedFields(data: AppStorage): AppStorage {
+  return {
+    ...data,
+    shiftTypes: data.appSettings.shiftTypes,
+    schoolSchedules: data.appSettings.schedule.schoolSchedules,
+  };
+}
+
+function readStorage(): AppStorage {
+  try {
+    const data = readCache();
+    if (data.appSettings) return syncSettingsDerivedFields(data);
+    return syncSettingsDerivedFields({
+      ...data,
+      appSettings: migrateAppSettings(undefined, data.shiftTypes, data.schoolSchedules),
+    });
+  } catch {
+    return createDefaultData();
+  }
+}
+
+function writeStorage(data: AppStorage): void {
+  writeCache(syncSettingsDerivedFields({ ...data, version: STORAGE_VERSION }));
+}
+
+function notifySettingsChanged(): void {
+  window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
+}
+
+export function getAppSettings(): AppSettings {
+  return readStorage().appSettings;
+}
+
+export function saveAppSettings(settings: AppSettings): AppSettings {
+  const data = readStorage();
+  data.appSettings = settings;
+  writeStorage(data);
+  notifySettingsChanged();
+  return settings;
+}
+
+export function exportAppBackup(): string {
+  const data = readStorage();
+  return JSON.stringify(data, null, 2);
+}
+
+export function restoreAppBackup(json: string): AppStorage {
+  const parsed = JSON.parse(json) as AppStorage;
+  const defaults = createDefaultData();
+  const restored: AppStorage = {
+    ...defaults,
+    ...parsed,
+    appSettings: migrateAppSettingsFromStorage(parsed, defaults),
+  };
+  writeStorage(restored);
+  notifySettingsChanged();
+  notifyEmployeesChanged();
+  window.dispatchEvent(new Event('schedules-changed'));
+  window.dispatchEvent(new Event(ACTUAL_WORK_CHANGED_EVENT));
+  window.dispatchEvent(new Event(PAYROLL_ADJUSTMENTS_CHANGED_EVENT));
+  return readStorage();
+}
+
+function migrateAppSettingsFromStorage(parsed: AppStorage, defaults: AppStorage): AppSettings {
+  return migrateAppSettings(
+    parsed.appSettings,
+    parsed.shiftTypes ?? defaults.shiftTypes,
+    parsed.schoolSchedules ?? defaults.schoolSchedules
+  );
+}
+
+export async function initStorage(): Promise<void> {
+  await initDataStore(createDefaultData());
+}
+
+export function getEmployees(): EmployeeRow[] {
+  return readStorage().employees;
+}
+
+function notifyEmployeesChanged(): void {
+  window.dispatchEvent(new Event(EMPLOYEES_CHANGED_EVENT));
+}
+
+function syncShiftsForEmployeeRename(
+  shifts: ScheduleShift[],
+  oldEmployee: EmployeeRow,
+  newName: string
+): ScheduleShift[] {
+  return shifts.map((shift) => {
+    if (!findEmployeeByShiftName([oldEmployee], shift.name)) return shift;
+    return {
+      ...shift,
+      name: newName,
+      id: createShiftId(shift.day, shift.rowId, newName),
+    };
+  });
+}
+
+function removeShiftsForEmployee(
+  shifts: ScheduleShift[],
+  employee: EmployeeRow
+): ScheduleShift[] {
+  return shifts.filter((shift) => !findEmployeeByShiftName([employee], shift.name));
+}
+
+export function createEmployee(input: EmployeeInput): EmployeeRow[] {
+  const data = readStorage();
+  const nextId = data.employees.reduce((max, e) => Math.max(max, e.id), 0) + 1;
+  const newEmployee: EmployeeRow = { id: nextId, ...input };
+  data.employees = [...data.employees, newEmployee];
+  writeStorage(data);
+  notifyEmployeesChanged();
+  return data.employees;
+}
+
+export function updateEmployee(id: number, input: EmployeeInput): EmployeeRow[] {
+  const data = readStorage();
+  const existing = data.employees.find((e) => e.id === id);
+  if (!existing) return data.employees;
+
+  if (input.name !== existing.name) {
+    data.scheduleShifts = syncShiftsForEmployeeRename(
+      data.scheduleShifts,
+      existing,
+      input.name
+    );
+    data.actualWorkRecords = syncActualWorkForEmployeeRename(
+      data.actualWorkRecords,
+      existing,
+      input.name
+    );
+  }
+
+  data.employees = data.employees.map((e) =>
+    e.id === id ? { ...e, ...input } : e
+  );
+  data.actualWorkRecords = data.actualWorkRecords.map((record) => {
+    if (record.employeeId !== id) return record;
+    return enrichActualWorkRecord(
+      { ...record, employeeName: input.name },
+      input.hourlyWage
+    );
+  });
+  writeStorage(data);
+  notifyEmployeesChanged();
+  return data.employees;
+}
+
+export function deleteEmployee(id: number): EmployeeRow[] {
+  const data = readStorage();
+  const existing = data.employees.find((e) => e.id === id);
+  if (!existing) return data.employees;
+
+  data.scheduleShifts = removeShiftsForEmployee(data.scheduleShifts, existing);
+  data.actualWorkRecords = removeActualWorkForEmployee(data.actualWorkRecords, id);
+  data.payrollAdjustmentRecords = data.payrollAdjustmentRecords.filter(
+    (record) => record.employeeId !== id
+  );
+  data.employees = data.employees.filter((e) => e.id !== id);
+  writeStorage(data);
+  notifyEmployeesChanged();
+  return data.employees;
+}
+
+function notifyActualWorkChanged(): void {
+  window.dispatchEvent(new Event(ACTUAL_WORK_CHANGED_EVENT));
+}
+
+function notifyPayrollAdjustmentsChanged(): void {
+  window.dispatchEvent(new Event(PAYROLL_ADJUSTMENTS_CHANGED_EVENT));
+}
+
+function adjustmentRecordKey(
+  employeeId: number,
+  period: PayrollPeriod,
+  periodKey: string
+): string {
+  return `${period}:${periodKey}:${employeeId}`;
+}
+
+export function getPayrollAdjustmentsForPeriod(
+  period: PayrollPeriod,
+  periodKey: string
+): Map<number, PayrollAdjustments> {
+  const data = readStorage();
+  const map = new Map<number, PayrollAdjustments>();
+  for (const record of data.payrollAdjustmentRecords) {
+    if (record.period === period && record.periodKey === periodKey) {
+      map.set(record.employeeId, record.adjustments);
+    }
+  }
+  return map;
+}
+
+export function getEmployeePayrollAdjustments(
+  employeeId: number,
+  period: PayrollPeriod,
+  periodKey: string
+): PayrollAdjustments {
+  const data = readStorage();
+  const found = data.payrollAdjustmentRecords.find(
+    (record) =>
+      record.employeeId === employeeId &&
+      record.period === period &&
+      record.periodKey === periodKey
+  );
+  return found?.adjustments ?? { ...EMPTY_PAYROLL_ADJUSTMENTS };
+}
+
+export function saveEmployeePayrollAdjustments(
+  employeeId: number,
+  period: PayrollPeriod,
+  periodKey: string,
+  adjustments: PayrollAdjustments
+): PayrollAdjustments {
+  const data = readStorage();
+  const key = adjustmentRecordKey(employeeId, period, periodKey);
+  const existingIndex = data.payrollAdjustmentRecords.findIndex(
+    (record) =>
+      adjustmentRecordKey(record.employeeId, record.period, record.periodKey) === key
+  );
+
+  const normalized: PayrollAdjustments = {
+    bonus: Math.max(0, Math.round(adjustments.bonus || 0)),
+    mealAllowance: Math.max(0, Math.round(adjustments.mealAllowance || 0)),
+    transportationAllowance: Math.max(
+      0,
+      Math.round(adjustments.transportationAllowance || 0)
+    ),
+    advanceDeduction: Math.max(0, Math.round(adjustments.advanceDeduction || 0)),
+    penaltyDeduction: Math.max(0, Math.round(adjustments.penaltyDeduction || 0)),
+    customLabel: adjustments.customLabel?.trim() ?? '',
+    customAmount: Math.round(adjustments.customAmount || 0),
+    note: adjustments.note?.trim() ?? '',
+  };
+
+  const hasValues =
+    normalized.bonus > 0 ||
+    normalized.mealAllowance > 0 ||
+    normalized.transportationAllowance > 0 ||
+    normalized.advanceDeduction > 0 ||
+    normalized.penaltyDeduction > 0 ||
+    normalized.customAmount !== 0 ||
+    normalized.note.length > 0;
+
+  if (!hasValues) {
+    if (existingIndex >= 0) {
+      data.payrollAdjustmentRecords.splice(existingIndex, 1);
+      writeStorage(data);
+      notifyPayrollAdjustmentsChanged();
+    }
+    return { ...EMPTY_PAYROLL_ADJUSTMENTS };
+  }
+
+  const record: PayrollAdjustmentRecord = {
+    employeeId,
+    period,
+    periodKey,
+    adjustments: normalized,
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (existingIndex >= 0) {
+    data.payrollAdjustmentRecords[existingIndex] = record;
+  } else {
+    data.payrollAdjustmentRecords.push(record);
+  }
+
+  writeStorage(data);
+  notifyPayrollAdjustmentsChanged();
+  return normalized;
+}
+
+function getEmployeeWage(employees: EmployeeRow[], employeeId: number): number {
+  return employees.find((e) => e.id === employeeId)?.hourlyWage ?? 10400;
+}
+
+function buildActualWorkRecord(
+  shift: ScheduleShift,
+  employee: EmployeeRow | undefined,
+  date: string
+): ActualWorkRecord {
+  const base: ActualWorkRecord = {
+    id: `aw-${date}-${shift.id}`,
+    employeeId: employee?.id ?? -1,
+    employeeName: employee?.name ?? shift.name,
+    date,
+    shiftId: shift.id,
+    scheduledStart: shift.startTime,
+    scheduledEnd: shift.endTime,
+    actualStart: null,
+    actualEnd: null,
+    scheduledHours: 0,
+    workedHours: 0,
+    isLate: false,
+    lateMinutes: 0,
+    isEarlyLeave: false,
+    earlyLeaveMinutes: 0,
+    isOvertime: false,
+    overtimeMinutes: 0,
+    status: 'scheduled',
+    payrollAmount: 0,
+    modificationReason: null,
+    isManuallyEdited: false,
+    updatedAt: new Date().toISOString(),
+  };
+  return enrichActualWorkRecord(base, employee?.hourlyWage ?? 10400);
+}
+
+export function getActualWorkRecords(date?: string): ActualWorkRecord[] {
+  const records = readStorage().actualWorkRecords;
+  if (!date) return records;
+  return records.filter((record) => record.date === date);
+}
+
+export function syncActualWorkForDate(
+  year: number,
+  month: number,
+  day: number
+): ActualWorkRecord[] {
+  const data = readStorage();
+  const date = toDateString(year, month, day);
+  const shifts = data.scheduleShifts.filter(
+    (shift) => shift.year === year && shift.month === month && shift.day === day
+  );
+  const existingForDate = data.actualWorkRecords.filter((record) => record.date === date);
+  const existingByShiftId = new Map(
+    existingForDate
+      .filter((record) => record.shiftId)
+      .map((record) => [record.shiftId as string, record])
+  );
+
+  const syncedForDate: ActualWorkRecord[] = shifts.map((shift) => {
+    const employee = findEmployeeByShiftName(data.employees, shift.name);
+    const existing = existingByShiftId.get(shift.id);
+    const wage = employee?.hourlyWage ?? getEmployeeWage(data.employees, existing?.employeeId ?? -1);
+
+    if (existing) {
+      return enrichActualWorkRecord(
+        {
+          ...existing,
+          employeeId: employee?.id ?? existing.employeeId,
+          employeeName: employee?.name ?? shift.name,
+          shiftId: shift.id,
+          scheduledStart: shift.startTime,
+          scheduledEnd: shift.endTime,
+        },
+        wage
+      );
+    }
+
+    return buildActualWorkRecord(shift, employee, date);
+  });
+
+  const otherDates = data.actualWorkRecords.filter((record) => record.date !== date);
+  data.actualWorkRecords = [...otherDates, ...syncedForDate];
+  writeStorage(data);
+  notifyActualWorkChanged();
+  return syncedForDate;
+}
+
+export function clockInActualWork(recordId: string): ActualWorkRecord[] {
+  const data = readStorage();
+  const now = getCurrentTimeString();
+  data.actualWorkRecords = data.actualWorkRecords.map((record) => {
+    if (record.id !== recordId || record.status !== 'scheduled') return record;
+    const wage = getEmployeeWage(data.employees, record.employeeId);
+    return enrichActualWorkRecord(
+      {
+        ...record,
+        actualStart: now,
+        status: 'working',
+      },
+      wage
+    );
+  });
+  writeStorage(data);
+  notifyActualWorkChanged();
+  return data.actualWorkRecords;
+}
+
+export function clockOutActualWork(recordId: string): ActualWorkRecord[] {
+  const data = readStorage();
+  const now = getCurrentTimeString();
+  data.actualWorkRecords = data.actualWorkRecords.map((record) => {
+    if (record.id !== recordId || record.status !== 'working') return record;
+    const wage = getEmployeeWage(data.employees, record.employeeId);
+    return enrichActualWorkRecord(
+      {
+        ...record,
+        actualEnd: now,
+        status: 'completed',
+      },
+      wage
+    );
+  });
+  writeStorage(data);
+  notifyActualWorkChanged();
+  return data.actualWorkRecords;
+}
+
+export function saveManualActualWorkEdit(
+  recordId: string,
+  actualStart: string | null,
+  actualEnd: string | null,
+  modificationReason: string
+): ActualWorkRecord[] {
+  const data = readStorage();
+  data.actualWorkRecords = data.actualWorkRecords.map((record) => {
+    if (record.id !== recordId) return record;
+    const wage = getEmployeeWage(data.employees, record.employeeId);
+    const status: ActualWorkRecord['status'] =
+      actualStart && actualEnd ? 'completed' : actualStart ? 'working' : 'scheduled';
+    return enrichActualWorkRecord(
+      {
+        ...record,
+        actualStart: actualStart || null,
+        actualEnd: actualEnd || null,
+        status,
+        modificationReason: modificationReason.trim() || null,
+        isManuallyEdited: true,
+      },
+      wage
+    );
+  });
+  writeStorage(data);
+  notifyActualWorkChanged();
+  return data.actualWorkRecords;
+}
+
+export function updateActualWorkTimes(
+  recordId: string,
+  actualStart: string | null,
+  actualEnd: string | null
+): ActualWorkRecord[] {
+  const data = readStorage();
+  data.actualWorkRecords = data.actualWorkRecords.map((record) => {
+    if (record.id !== recordId) return record;
+    const wage = getEmployeeWage(data.employees, record.employeeId);
+    const status: ActualWorkRecord['status'] =
+      actualStart && actualEnd ? 'completed' : actualStart ? 'working' : 'scheduled';
+    return enrichActualWorkRecord(
+      {
+        ...record,
+        actualStart,
+        actualEnd,
+        status,
+      },
+      wage
+    );
+  });
+  writeStorage(data);
+  notifyActualWorkChanged();
+  return data.actualWorkRecords;
+}
+
+function syncActualWorkForEmployeeRename(
+  records: ActualWorkRecord[],
+  oldEmployee: EmployeeRow,
+  newName: string
+): ActualWorkRecord[] {
+  return records.map((record) =>
+    record.employeeId === oldEmployee.id ? { ...record, employeeName: newName } : record
+  );
+}
+
+function removeActualWorkForEmployee(
+  records: ActualWorkRecord[],
+  employeeId: number
+): ActualWorkRecord[] {
+  return records.filter((record) => record.employeeId !== employeeId);
+}
+
+export function getSchoolSchedules(): SchoolSchedule[] {
+  return readStorage().appSettings.schedule.schoolSchedules;
+}
+
+export function getShiftTypes(): ShiftType[] {
+  return readStorage().appSettings.shiftTypes;
+}
+
+export function getScheduleShifts(year?: number, month?: number): ScheduleShift[] {
+  const shifts = readStorage().scheduleShifts;
+  if (year === undefined || month === undefined) return shifts;
+  return shifts.filter((s) => s.year === year && s.month === month);
+}
+
+export function saveScheduleShifts(shifts: ScheduleShift[]): void {
+  const data = readStorage();
+  data.scheduleShifts = shifts;
+  writeStorage(data);
+}
+
+export function moveShift(
+  shiftId: string,
+  targetDay: number,
+  targetRowId: ShiftRowId,
+  year: number,
+  month: number
+): ScheduleShift[] {
+  const data = readStorage();
+  const updated = data.scheduleShifts.map((s) => {
+    if (s.id !== shiftId) return s;
+    return {
+      ...s,
+      day: targetDay,
+      rowId: targetRowId,
+      year,
+      month,
+      id: createShiftId(targetDay, targetRowId, s.name),
+    };
+  });
+  saveScheduleShifts(updated);
+  return updated;
+}
+
+export function resizeShift(shiftId: string, deltaHours: number): ScheduleShift[] {
+  const data = readStorage();
+  const updated = data.scheduleShifts.map((s) => {
+    if (s.id !== shiftId) return s;
+    const { endTime, duration } = resizeShiftEnd(s.startTime, s.endTime, deltaHours);
+    return { ...s, endTime, duration };
+  });
+  saveScheduleShifts(updated);
+  return updated;
+}
+
+function buildShiftFromInput(input: ShiftInput, id?: string): ScheduleShift {
+  const { duration } = updateShiftDuration(input.startTime, input.endTime);
+  return {
+    id: id ?? createShiftId(input.day, input.rowId, input.name),
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    rowId: input.rowId,
+    name: input.name,
+    startTime: input.startTime,
+    endTime: input.endTime,
+    duration,
+  };
+}
+
+export function createShift(input: ShiftInput): ScheduleShift[] {
+  const data = readStorage();
+  const newShift = buildShiftFromInput(input);
+  const updated = [...data.scheduleShifts, newShift];
+  saveScheduleShifts(updated);
+  return updated;
+}
+
+export function updateShift(shiftId: string, input: ShiftInput): ScheduleShift[] {
+  const data = readStorage();
+  const updated = data.scheduleShifts.map((s) => {
+    if (s.id !== shiftId) return s;
+    return buildShiftFromInput(input, createShiftId(input.day, input.rowId, input.name));
+  });
+  saveScheduleShifts(updated);
+  return updated;
+}
+
+export function deleteShift(shiftId: string): ScheduleShift[] {
+  const data = readStorage();
+  const updated = data.scheduleShifts.filter((s) => s.id !== shiftId);
+  saveScheduleShifts(updated);
+  return updated;
+}
+
+function toEmployee(emp: EmployeeRow): Employee {
+  return {
+    id: emp.id,
+    name: emp.name,
+    hourlyWage: emp.hourlyWage,
+    isActive: emp.status !== 'resigned',
+  };
+}
+
+export function getDashboardStats(): DashboardStats {
+  const data = readStorage();
+  const today = new Date();
+  const todayDay = today.getDate();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth() + 1;
+
+  const activeEmployeeRows = data.employees.filter((e) => e.status !== 'resigned');
+  const employees = activeEmployeeRows.map(toEmployee);
+  const monthShifts = data.scheduleShifts.filter(
+    (s) => s.year === todayYear && s.month === todayMonth
+  );
+
+  let totalWorkHours = 0;
+  let totalPayroll = 0;
+
+  for (const shift of monthShifts) {
+    const hours = calculateShiftHours(shift.startTime, shift.endTime);
+    const emp = findEmployeeByShiftName(data.employees, shift.name);
+    const wage = emp?.hourlyWage ?? 10400;
+    totalWorkHours += hours;
+    totalPayroll += hours * wage;
+  }
+
+  const workingTodayNames = new Set(
+    monthShifts.filter((s) => s.day === todayDay).map((s) => s.name)
+  );
+
+  const workingToday = employees.filter((e) =>
+    [...workingTodayNames].some(
+      (n) => e.name === n || e.name.endsWith(n) || e.name.includes(n)
+    )
+  );
+  const offToday = employees.filter(
+    (e) =>
+      ![...workingTodayNames].some(
+        (n) => e.name === n || e.name.endsWith(n) || e.name.includes(n)
+      )
+  );
+
+  const totalEmployees = employees.length;
+  const averagePayrollPerEmployee =
+    totalEmployees > 0 ? Math.round(totalPayroll / totalEmployees) : 0;
+
+  return {
+    totalEmployees,
+    totalPayroll: Math.round(totalPayroll),
+    averagePayrollPerEmployee,
+    totalWorkHours: Math.round(totalWorkHours * 10) / 10,
+    employeesWorkingToday: workingToday.length,
+    employeesOffToday: offToday.length,
+    workingToday,
+    offToday,
+  };
+}

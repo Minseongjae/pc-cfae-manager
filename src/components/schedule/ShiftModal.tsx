@@ -1,0 +1,228 @@
+import { useEffect, useMemo, useState } from 'react';
+import { X, Trash2 } from 'lucide-react';
+import { shiftRows, type ScheduleShift, type ShiftRowId } from '@/data/mockSchedule';
+import { type ShiftInput } from '@/lib/storage';
+import { findEmployeeByShiftName } from '@/lib/payroll';
+import { useEmployees } from '@/contexts/EmployeesContext';
+import { getPositionLabel } from '@/lib/employees';
+import type { EmployeeRow } from '@/lib/storage';
+import { ModalOverlay } from '@/components/ui/ModalOverlay';
+import {
+  clampScheduleDay,
+  getMaxDayInScheduleMonth,
+  isScheduleDateAllowed,
+} from '@/lib/scheduleDateRange';
+export type ShiftModalMode = 'create' | 'edit';
+
+interface ShiftModalProps {
+  mode: ShiftModalMode;
+  shift: ScheduleShift | null;
+  year: number;
+  month: number;
+  defaultDay?: number;
+  defaultRowId?: ShiftRowId;
+  onSave: (input: ShiftInput) => void;
+  onDelete?: () => void;
+  onClose: () => void;
+}
+
+function getEmployeeValue(name: string, employees: EmployeeRow[]): string {
+  const match = findEmployeeByShiftName(employees, name);
+  return match?.name ?? name;
+}
+export function ShiftModal({
+  mode,
+  shift,
+  year,
+  month,
+  defaultDay = 1,
+  defaultRowId = 'morning',
+  onSave,
+  onDelete,
+  onClose,
+}: ShiftModalProps) {
+  const { employees } = useEmployees();
+  const maxDay = useMemo(
+    () => getMaxDayInScheduleMonth(year, month),
+    [year, month]
+  );
+  const initialDay =
+    mode === 'edit' && shift
+      ? shift.day
+      : clampScheduleDay(year, month, defaultDay || new Date().getDate());
+
+  const [day, setDay] = useState(initialDay);
+  const [employeeName, setEmployeeName] = useState(
+    mode === 'edit' && shift ? getEmployeeValue(shift.name, employees) : employees[0]?.name ?? ''
+  );
+  const [rowId, setRowId] = useState<ShiftRowId>(
+    mode === 'edit' && shift ? shift.rowId : defaultRowId
+  );
+  const [startTime, setStartTime] = useState(
+    mode === 'edit' && shift ? shift.startTime : '10:00'
+  );
+  const [endTime, setEndTime] = useState(
+    mode === 'edit' && shift ? shift.endTime : '14:00'
+  );
+
+  useEffect(() => {
+    setDay((current) => clampScheduleDay(year, month, current));
+  }, [year, month]);
+
+  useEffect(() => {
+    if (mode === 'edit' && shift) {
+      setDay(shift.day);
+      setEmployeeName(getEmployeeValue(shift.name, employees));
+      setRowId(shift.rowId);
+      setStartTime(shift.startTime);
+      setEndTime(shift.endTime);
+    } else if (mode === 'create') {
+      setDay(clampScheduleDay(year, month, defaultDay || new Date().getDate()));
+      setEmployeeName(employees[0]?.name ?? '');
+      setRowId(defaultRowId);
+      setStartTime('10:00');
+      setEndTime('14:00');
+    }
+  }, [mode, shift, defaultDay, defaultRowId, employees, year, month]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!employeeName) return;
+    const normalizedDay = clampScheduleDay(year, month, day);
+    if (!isScheduleDateAllowed(year, month, normalizedDay)) return;
+    onSave({
+      year,
+      month,
+      day: normalizedDay,
+      rowId,
+      name: employeeName,
+      startTime,
+      endTime,
+    });
+  };
+
+  return (
+    <ModalOverlay onClose={onClose} panelClassName="card-elevated w-full max-w-md shadow-xl">
+        <div className="flex items-center justify-between px-6 py-5 border-b border-stone-200">
+          <div>
+            <h2 className="heading-display text-lg">
+              {mode === 'create' ? '근무 추가' : '근무 수정'}
+            </h2>
+            <p className="text-xs text-stone-500 mt-0.5">
+              {year}년 {month}월
+            </p>
+          </div>
+          <button onClick={onClose} className="btn-ghost">
+            <X size={18} />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label-caps normal-case tracking-wide block mb-2">
+                날짜
+              </label>
+              <input
+                type="number"
+                min={1}
+                max={maxDay}
+                value={day}
+                onChange={(e) =>
+                  setDay(clampScheduleDay(year, month, Number(e.target.value)))
+                }
+                className="input-luxury"
+                required
+              />
+            </div>
+            <div>
+              <label className="label-caps normal-case tracking-wide block mb-2">
+                근무 유형
+              </label>
+              <select
+                value={rowId}
+                onChange={(e) => setRowId(e.target.value as ShiftRowId)}
+                className="input-luxury"
+              >
+                {shiftRows.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="label-caps normal-case tracking-wide block mb-2">
+              직원
+            </label>
+            <select
+              value={employeeName}
+              onChange={(e) => setEmployeeName(e.target.value)}
+              className="input-luxury"
+              required
+            >
+              {employees
+                .filter((emp) => emp.status !== 'resigned')
+                .map((emp) => (
+                  <option key={emp.id} value={emp.name}>
+                    {emp.name} ({getPositionLabel(emp.position)})
+                  </option>
+                ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label-caps normal-case tracking-wide block mb-2">
+                시작 시간
+              </label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+                className="input-luxury"
+                required
+              />
+            </div>
+            <div>
+              <label className="label-caps normal-case tracking-wide block mb-2">
+                종료 시간
+              </label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+                className="input-luxury"
+                required
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 gap-3">
+            {mode === 'edit' && onDelete ? (
+              <button
+                type="button"
+                onClick={onDelete}
+                className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+              >
+                <Trash2 size={16} />
+                삭제
+              </button>
+            ) : (
+              <div />
+            )}
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={onClose} className="btn-secondary">
+                취소
+              </button>
+              <button type="submit" className="btn-primary">
+                {mode === 'create' ? '추가' : '저장'}
+              </button>
+            </div>
+          </div>
+        </form>
+    </ModalOverlay>
+  );
+}

@@ -1,0 +1,298 @@
+import fs from 'node:fs';
+import { google, type sheets_v4 } from 'googleapis';
+import { HEADERS, SHEET_NAMES } from './schema.js';
+import {
+  attendanceFromRow,
+  attendanceToRow,
+  buildSettingsRows,
+  computeSyncToken,
+  employeeFromRow,
+  employeeToRow,
+  parseSchoolSchedules,
+  parseSettingsRows,
+  payrollFromRow,
+  payrollToRow,
+  scheduleFromRow,
+  scheduleToRow,
+} from './mappers.js';
+import type { AppDataPayload, AppSettingsPayload } from './types.js';
+
+const EMPTY_APP_SETTINGS: AppSettingsPayload = {
+  store: {},
+  payroll: {},
+  schedule: { schoolSchedules: [] },
+  positions: [],
+  shiftTypes: [],
+  theme: {},
+  security: {},
+};
+
+function getPrivateKey(): string {
+  const raw = process.env.GOOGLE_PRIVATE_KEY ?? '';
+  return raw.replace(/\\n/g, '\n');
+}
+
+function loadServiceAccountCredentials(): { email: string; key: string } {
+  const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (credPath && fs.existsSync(credPath)) {
+    const creds = JSON.parse(fs.readFileSync(credPath, 'utf8')) as {
+      client_email?: string;
+      private_key?: string;
+    };
+    if (creds.client_email && creds.private_key) {
+      return { email: creds.client_email, key: creds.private_key };
+    }
+  }
+
+  const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL ?? '';
+  const key = getPrivateKey();
+  return { email, key };
+}
+
+function createSheetsClient(): sheets_v4.Sheets {
+  const { email, key } = loadServiceAccountCredentials();
+  const sheetId = process.env.GOOGLE_SHEETS_ID;
+
+  if (!email || !key || !sheetId) {
+    throw new Error(
+      'Missing Google Sheets configuration. Set GOOGLE_SHEETS_ID and either GOOGLE_APPLICATION_CREDENTIALS (path to service account JSON) or GOOGLE_SERVICE_ACCOUNT_EMAIL + GOOGLE_PRIVATE_KEY.'
+    );
+  }
+
+  const auth = new google.auth.JWT({
+    email,
+    key,
+    scopes: ['https://www.googleapis.com/auth/spreadsheets'],
+  });
+
+  return google.sheets({ version: 'v4', auth });
+}
+
+function sheetId(): string {
+  const id = process.env.GOOGLE_SHEETS_ID;
+  if (!id) throw new Error('GOOGLE_SHEETS_ID is not configured');
+  return id;
+}
+
+async function getSheetIdByName(
+  sheets: sheets_v4.Sheets,
+  title: string
+): Promise<number | null> {
+  const response = await sheets.spreadsheets.get({ spreadsheetId: sheetId() });
+  const match = response.data.sheets?.find((sheet) => sheet.properties?.title === title);
+  return match?.properties?.sheetId ?? null;
+}
+
+async function ensureSheetExists(sheets: sheets_v4.Sheets, title: string): Promise<void> {
+  const existing = await getSheetIdByName(sheets, title);
+  if (existing !== null) return;
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: sheetId(),
+    requestBody: {
+      requests: [{ addSheet: { properties: { title } } }],
+    },
+  });
+}
+
+async function readRows(sheets: sheets_v4.Sheets, tabName: string): Promise<string[][]> {
+  const range = `${tabName}!A:Z`;
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range,
+  });
+  const values = response.data.values ?? [];
+  if (values.length <= 1) return [];
+  return values.slice(1).map((row) => row.map((cell) => String(cell ?? '')));
+}
+
+async function writeSheet(
+  sheets: sheets_v4.Sheets,
+  tabName: string,
+  headers: readonly string[],
+  rows: string[][]
+): Promise<void> {
+  const numericSheetId = await getSheetIdByName(sheets, tabName);
+  if (numericSheetId === null) return;
+
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: sheetId(),
+    range: `${tabName}!A:Z`,
+  });
+
+  const values: string[][] = [Array.from(headers), ...rows];
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: sheetId(),
+    range: `${tabName}!A1`,
+    valueInputOption: 'RAW',
+    requestBody: { values },
+  });
+}
+
+async function sheetHasHeaders(
+  sheets: sheets_v4.Sheets,
+  tabName: string,
+  headers: readonly string[]
+): Promise<boolean> {
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `${tabName}!A1:Z1`,
+  });
+  const row = (response.data.values?.[0] ?? []).map((cell) => String(cell ?? ''));
+  return headers.every((header, index) => row[index] === header);
+}
+
+async function ensureSheetWithHeaders(
+  sheets: sheets_v4.Sheets,
+  tabName: string,
+  headers: readonly string[],
+  defaultRows: string[][] = []
+): Promise<void> {
+  await ensureSheetExists(sheets, tabName);
+  const hasHeaders = await sheetHasHeaders(sheets, tabName, headers);
+  if (!hasHeaders) {
+    await writeSheet(sheets, tabName, headers, defaultRows);
+  }
+}
+
+export async function initializeSheets(): Promise<void> {
+  const sheets = createSheetsClient();
+
+  await ensureSheetWithHeaders(sheets, SHEET_NAMES.employees, HEADERS.employees);
+  await ensureSheetWithHeaders(sheets, SHEET_NAMES.schedules, HEADERS.schedules);
+  await ensureSheetWithHeaders(sheets, SHEET_NAMES.attendance, HEADERS.attendance);
+  await ensureSheetWithHeaders(sheets, SHEET_NAMES.payroll, HEADERS.payroll);
+  await ensureSheetWithHeaders(sheets, SHEET_NAMES.settings, HEADERS.settings, [
+    ['school_schedules', '[]', new Date().toISOString()],
+    ['app_settings', '{}', new Date().toISOString()],
+  ]);
+}
+
+export async function readAllData(): Promise<AppDataPayload> {
+  const sheets = createSheetsClient();
+
+  const [employeeRows, scheduleRows, attendanceRows, payrollRows, settingsRows] =
+    await Promise.all([
+      readRows(sheets, SHEET_NAMES.employees),
+      readRows(sheets, SHEET_NAMES.schedules),
+      readRows(sheets, SHEET_NAMES.attendance),
+      readRows(sheets, SHEET_NAMES.payroll),
+      readRows(sheets, SHEET_NAMES.settings),
+    ]);
+
+  const employees = employeeRows
+    .map((row) => employeeFromRow([...HEADERS.employees], row))
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const scheduleShifts = scheduleRows
+    .map((row) => scheduleFromRow([...HEADERS.schedules], row))
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const actualWorkRecords = attendanceRows
+    .map((row) => attendanceFromRow([...HEADERS.attendance], row))
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const payrollAdjustmentRecords = payrollRows
+    .map((row) => payrollFromRow([...HEADERS.payroll], row))
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const schoolSchedulesSetting = settingsRows.find((row) => row[0] === 'school_schedules');
+  const legacySchoolSchedules = parseSchoolSchedules(schoolSchedulesSetting?.[1] ?? '[]');
+  const { schoolSchedules, appSettings } = parseSettingsRows(
+    settingsRows,
+    {
+      ...EMPTY_APP_SETTINGS,
+      schedule: { ...EMPTY_APP_SETTINGS.schedule, schoolSchedules: legacySchoolSchedules },
+    }
+  );
+
+  const base = {
+    employees,
+    scheduleShifts,
+    actualWorkRecords,
+    payrollAdjustmentRecords,
+    schoolSchedules: schoolSchedules.length ? schoolSchedules : legacySchoolSchedules,
+    appSettings,
+  };
+
+  return {
+    ...base,
+    syncToken: computeSyncToken(base),
+  };
+}
+
+export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): Promise<string> {
+  const sheets = createSheetsClient();
+  const now = new Date().toISOString();
+
+  const employees = payload.employees.map((employee) => ({
+    ...employee,
+    updatedAt: employee.updatedAt || now,
+  }));
+  const scheduleShifts = payload.scheduleShifts.map((shift) => ({
+    ...shift,
+    updatedAt: shift.updatedAt || now,
+  }));
+  const actualWorkRecords = payload.actualWorkRecords.map((record) => ({
+    ...record,
+    updatedAt: record.updatedAt || now,
+  }));
+  const payrollAdjustmentRecords = payload.payrollAdjustmentRecords.map((record) => ({
+    ...record,
+    updatedAt: record.updatedAt || now,
+  }));
+
+  await Promise.all([
+    writeSheet(
+      sheets,
+      SHEET_NAMES.employees,
+      HEADERS.employees,
+      employees.map(employeeToRow)
+    ),
+    writeSheet(
+      sheets,
+      SHEET_NAMES.schedules,
+      HEADERS.schedules,
+      scheduleShifts.map(scheduleToRow)
+    ),
+    writeSheet(
+      sheets,
+      SHEET_NAMES.attendance,
+      HEADERS.attendance,
+      actualWorkRecords.map(attendanceToRow)
+    ),
+    writeSheet(
+      sheets,
+      SHEET_NAMES.payroll,
+      HEADERS.payroll,
+      payrollAdjustmentRecords.map(payrollToRow)
+    ),
+    writeSheet(
+      sheets,
+      SHEET_NAMES.settings,
+      HEADERS.settings,
+      buildSettingsRows({
+        schoolSchedules: payload.schoolSchedules,
+        appSettings: payload.appSettings,
+      })
+    ),
+  ]);
+
+  return computeSyncToken({
+    employees,
+    scheduleShifts,
+    actualWorkRecords,
+    payrollAdjustmentRecords,
+    schoolSchedules: payload.schoolSchedules,
+    appSettings: payload.appSettings,
+  });
+}
+
+export function isSheetsConfigured(): boolean {
+  if (!process.env.GOOGLE_SHEETS_ID) return false;
+
+  const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (credPath && fs.existsSync(credPath)) return true;
+
+  return Boolean(process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL && process.env.GOOGLE_PRIVATE_KEY);
+}

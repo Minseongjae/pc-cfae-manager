@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-electron
+dist-server
+release
+.env
+.env.local
+credentials/
+!credentials/.gitkeep
+*.db
+*.log
