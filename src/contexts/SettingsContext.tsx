@@ -13,11 +13,13 @@ import {
   SETTINGS_CHANGED_EVENT,
   type AppSettings,
 } from '@/lib/appSettings';
+import type { ShiftType } from '@/types';
 import {
   exportAppBackup,
   getAppSettings,
   restoreAppBackup,
   saveAppSettings,
+  saveShiftTypes as persistShiftTypes,
 } from '@/lib/storage';
 
 interface SettingsContextValue {
@@ -25,7 +27,12 @@ interface SettingsContextValue {
   version: number;
   save: (next: AppSettings) => void;
   update: (patch: Partial<AppSettings>) => void;
+  saveShiftTypes: (types: ShiftType[]) => void;
   changePassword: (
+    currentPassword: string,
+    newPassword: string
+  ) => Promise<{ ok: boolean; message: string }>;
+  changeEmployeePassword: (
     currentPassword: string,
     newPassword: string
   ) => Promise<{ ok: boolean; message: string }>;
@@ -69,6 +76,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [save, settings]
   );
 
+  const saveShiftTypes = useCallback(
+    (types: ShiftType[]) => {
+      const normalized = persistShiftTypes(types);
+      setSettings((current) => ({ ...current, shiftTypes: normalized }));
+      setVersion((v) => v + 1);
+    },
+    []
+  );
+
   const changePassword = useCallback(
     async (currentPassword: string, newPassword: string) => {
       const currentHash = await hashPassword(currentPassword);
@@ -84,9 +100,31 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       const nextHash = await hashPassword(newPassword);
       save({
         ...settings,
-        security: { passwordHash: nextHash },
+        security: { ...settings.security, passwordHash: nextHash },
       });
-      return { ok: true, message: '비밀번호가 저장되었습니다.' };
+      return { ok: true, message: '관리자 비밀번호가 저장되었습니다.' };
+    },
+    [save, settings]
+  );
+
+  const changeEmployeePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const currentHash = await hashPassword(currentPassword);
+      const storedHash = settings.security.employeePasswordHash;
+
+      if (storedHash && storedHash !== currentHash) {
+        return { ok: false, message: '현재 직원 비밀번호가 일치하지 않습니다.' };
+      }
+      if (newPassword.length < 4) {
+        return { ok: false, message: '새 비밀번호는 4자 이상이어야 합니다.' };
+      }
+
+      const nextHash = await hashPassword(newPassword);
+      save({
+        ...settings,
+        security: { ...settings.security, employeePasswordHash: nextHash },
+      });
+      return { ok: true, message: '직원 비밀번호가 저장되었습니다.' };
     },
     [save, settings]
   );
@@ -117,11 +155,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       version,
       save,
       update,
+      saveShiftTypes,
       changePassword,
+      changeEmployeePassword,
       exportBackup,
       restoreBackup,
     }),
-    [settings, version, save, update, changePassword, exportBackup, restoreBackup]
+    [
+      settings,
+      version,
+      save,
+      update,
+      saveShiftTypes,
+      changePassword,
+      changeEmployeePassword,
+      exportBackup,
+      restoreBackup,
+    ]
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

@@ -1,8 +1,6 @@
 import type { ReactNode } from 'react';
 import type { PageId } from '@/types';
-import { useAdminLock } from '@/hooks/useAdminLock';
-import { requiresPageAuth, usesBlurGate } from '@/lib/pageAccess';
-import { AdminBlurGate } from '@/components/auth/AdminBlurGate';
+import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { AdminPageGate } from '@/components/auth/AdminPageGate';
 
 interface PageAccessGuardProps {
@@ -11,15 +9,11 @@ interface PageAccessGuardProps {
 }
 
 export function PageAccessGuard({ pageId, children }: PageAccessGuardProps) {
-  const unlocked = useAdminLock();
+  const { canAccessPage } = useAdminLockContext();
 
-  if (!requiresPageAuth(pageId) || unlocked) {
+  if (canAccessPage(pageId)) {
     return <>{children}</>;
   }
 
-  if (usesBlurGate(pageId)) {
-    return <AdminBlurGate>{children}</AdminBlurGate>;
-  }
-
-  return <AdminPageGate />;
+  return <AdminPageGate pageId={pageId} />;
 }

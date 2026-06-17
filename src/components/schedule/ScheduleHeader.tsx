@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 
 export type ViewMode = 'monthly' | 'weekly' | 'daily';
 
@@ -13,6 +13,7 @@ interface ScheduleHeaderProps {
   canGoNext?: boolean;
   onToday: () => void;
   onCreateShift: () => void;
+  onBatchDelete?: () => void;
   readOnly?: boolean;
 }
 
@@ -27,6 +28,7 @@ export function ScheduleHeader({
   canGoNext = true,
   onToday,
   onCreateShift,
+  onBatchDelete,
   readOnly = false,
 }: ScheduleHeaderProps) {
   return (
@@ -80,10 +82,22 @@ export function ScheduleHeader({
           </div>
 
           {!readOnly && (
-          <button className="btn-primary w-full sm:w-auto touch-target justify-center" onClick={onCreateShift}>
-            <Plus size={16} strokeWidth={2} />
-            근무 추가
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            {onBatchDelete && (
+              <button
+                type="button"
+                className="btn-secondary w-full sm:w-auto touch-target justify-center text-rose-700 border-rose-200 hover:bg-rose-50"
+                onClick={onBatchDelete}
+              >
+                <Trash2 size={16} strokeWidth={2} />
+                일괄 삭제
+              </button>
+            )}
+            <button className="btn-primary w-full sm:w-auto touch-target justify-center" onClick={onCreateShift}>
+              <Plus size={16} strokeWidth={2} />
+              근무 추가
+            </button>
+          </div>
           )}
         </div>
       </div>

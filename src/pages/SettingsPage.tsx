@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect, useRef } from 'react';
+import { useMemo, useState, useEffect, useRef, type FocusEvent } from 'react';
 import {
   Building2,
   Calendar,
@@ -50,7 +50,7 @@ const SECTIONS: { id: SettingsSectionId; label: string; icon: typeof Building2 }
   { id: 'schedule', label: '스케줄 설정', icon: Calendar },
   { id: 'positions', label: '직책 관리', icon: Users },
   { id: 'shifts', label: '근무유형 관리', icon: Clock },
-  { id: 'security', label: '관리자 비밀번호', icon: KeyRound },
+  { id: 'security', label: '비밀번호 / 권한', icon: KeyRound },
   { id: 'sheets', label: '클라우드 동기화', icon: Cloud },
   { id: 'backup', label: '백업 / 복원', icon: Database },
   { id: 'theme', label: '테마 설정', icon: Palette },
@@ -165,12 +165,7 @@ export function SettingsPage() {
                 onChange={(positions) => patchDraft({ positions })}
               />
             )}
-            {active === 'shifts' && (
-              <ShiftTypesSection
-                value={draft.shiftTypes}
-                onChange={(shiftTypes) => patchDraft({ shiftTypes })}
-              />
-            )}
+            {active === 'shifts' && <ShiftTypesSection />}
             {active === 'security' && <SecuritySection />}
             {active === 'sheets' && <CloudSyncSection />}
             {active === 'backup' && <BackupSection />}
@@ -521,39 +516,123 @@ function PositionsSection({
   );
 }
 
-function ShiftTypesSection({
+function ShiftTypeNameInput({
   value,
   onChange,
+  onCommit,
+  placeholder,
 }: {
-  value: ShiftType[];
-  onChange: (v: ShiftType[]) => void;
+  value: string;
+  onChange: (name: string) => void;
+  onCommit: (name: string) => void;
+  placeholder?: string;
 }) {
-  const [deleteError, setDeleteError] = useState('');
-  const sorted = sortShiftTypes(value);
-
-  const update = (index: number, patch: Partial<ShiftType>) => {
-    onChange(sorted.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  const handleFocus = (event: FocusEvent<HTMLInputElement>) => {
+    const input = event.currentTarget;
+    requestAnimationFrame(() => {
+      input.select();
+    });
   };
 
-  const handleDelete = (index: number) => {
-    const target = sorted[index];
+  return (
+    <input
+      className="input-luxury"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onFocus={handleFocus}
+      onBlur={() => onCommit(value)}
+      placeholder={placeholder}
+      autoComplete="off"
+      autoCorrect="off"
+      spellCheck={false}
+    />
+  );
+}
+
+function ShiftTypesSection() {
+  const { settings, saveShiftTypes } = useSettings();
+  const [deleteError, setDeleteError] = useState('');
+  const [savedHint, setSavedHint] = useState('');
+  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
+
+  const types = settings.shiftTypes;
+  const sorted = sortShiftTypes(types);
+
+  useEffect(() => {
+    setNameDrafts((current) => {
+      const next = { ...current };
+      for (const row of types) {
+        if (!(row.id in next)) {
+          next[row.id] = row.name;
+        }
+      }
+      for (const id of Object.keys(next)) {
+        if (!types.some((row) => row.id === id)) {
+          delete next[id];
+        }
+      }
+      return next;
+    });
+  }, [types]);
+
+  useEffect(() => {
+    if (!savedHint) return;
+    const timer = window.setTimeout(() => setSavedHint(''), 2000);
+    return () => window.clearTimeout(timer);
+  }, [savedHint]);
+
+  const persist = (next: ShiftType[], hint = '저장됨') => {
+    saveShiftTypes(next);
+    setSavedHint(hint);
+  };
+
+  const updateById = (id: string, patch: Partial<ShiftType>) => {
+    persist(types.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const handleNameChange = (id: string, name: string) => {
+    setNameDrafts((current) => ({ ...current, [id]: name }));
+  };
+
+  const handleNameCommit = (id: string, name: string) => {
+    const trimmed = name.trim();
+    const fallback = types.find((row) => row.id === id)?.name ?? '근무유형';
+    const nextName = trimmed || fallback;
+    setNameDrafts((current) => ({ ...current, [id]: nextName }));
+    if (nextName !== types.find((row) => row.id === id)?.name) {
+      updateById(id, { name: nextName });
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    const target = types.find((row) => row.id === id);
+    if (!target) return;
+
     const usedCount = getScheduleShifts().filter((shift) => shift.rowId === target.id).length;
     if (usedCount > 0) {
       setDeleteError(`"${target.name}" 유형은 스케줄에 ${usedCount}건 사용 중이라 삭제할 수 없습니다.`);
       return;
     }
-    if (sorted.length <= 1) {
+    if (types.length <= 1) {
       setDeleteError('최소 1개의 근무유형이 필요합니다.');
       return;
     }
+
+    const confirmed = window.confirm(`"${target.name}" 근무유형을 삭제하시겠습니까?`);
+    if (!confirmed) return;
+
     setDeleteError('');
-    onChange(sorted.filter((_, i) => i !== index).map((row, i) => ({ ...row, sortOrder: i })));
+    persist(
+      types
+        .filter((row) => row.id !== id)
+        .map((row, index) => ({ ...row, sortOrder: index }))
+    );
   };
 
   return (
     <SectionCard
       title="근무유형 관리"
-      description="스케줄표 행(근무유형)을 추가·수정·삭제하고 색상과 순서를 설정합니다. 저장 시 Google Sheets에 반영됩니다."
+      description="추가·수정·삭제·순서·색상 변경 시 Google Sheets에 즉시 저장됩니다."
     >
       <div className="space-y-3">
         {sorted.map((row, index) => (
@@ -574,7 +653,7 @@ function ShiftTypesSection({
                   type="button"
                   className="btn-ghost p-1.5 touch-target"
                   disabled={index === 0}
-                  onClick={() => onChange(moveShiftType(sorted, index, -1))}
+                  onClick={() => persist(moveShiftType(types, index, -1))}
                   title="위로"
                 >
                   <ChevronUp size={16} />
@@ -583,7 +662,7 @@ function ShiftTypesSection({
                   type="button"
                   className="btn-ghost p-1.5 touch-target"
                   disabled={index === sorted.length - 1}
-                  onClick={() => onChange(moveShiftType(sorted, index, 1))}
+                  onClick={() => persist(moveShiftType(types, index, 1))}
                   title="아래로"
                 >
                   <ChevronDown size={16} />
@@ -591,7 +670,7 @@ function ShiftTypesSection({
                 <button
                   type="button"
                   className="btn-ghost text-rose-600 text-xs px-2 touch-target"
-                  onClick={() => handleDelete(index)}
+                  onClick={() => handleDelete(row.id)}
                 >
                   삭제
                 </button>
@@ -600,35 +679,35 @@ function ShiftTypesSection({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="유형 이름">
-                <input
-                  className="input-luxury"
-                  value={row.name}
-                  onChange={(e) => update(index, { name: e.target.value })}
+                <ShiftTypeNameInput
+                  value={nameDrafts[row.id] ?? row.name}
+                  onChange={(name) => handleNameChange(row.id, name)}
+                  onCommit={(name) => handleNameCommit(row.id, name)}
                   placeholder="예: 오픈, 미들, 마감"
                 />
               </Field>
               <Field label="색상">
                 <input
                   type="color"
-                  className="input-luxury h-[42px] p-1 w-full"
+                  className="input-luxury h-[42px] p-1 w-full touch-target"
                   value={row.color}
-                  onChange={(e) => update(index, { color: e.target.value })}
+                  onChange={(e) => updateById(row.id, { color: e.target.value })}
                 />
               </Field>
               <Field label="기본 시작">
                 <input
                   type="time"
-                  className="input-luxury"
+                  className="input-luxury touch-target"
                   value={row.defaultStartTime ?? '10:00'}
-                  onChange={(e) => update(index, { defaultStartTime: e.target.value })}
+                  onChange={(e) => updateById(row.id, { defaultStartTime: e.target.value })}
                 />
               </Field>
               <Field label="기본 종료">
                 <input
                   type="time"
-                  className="input-luxury"
+                  className="input-luxury touch-target"
                   value={row.defaultEndTime ?? '14:00'}
-                  onChange={(e) => update(index, { defaultEndTime: e.target.value })}
+                  onChange={(e) => updateById(row.id, { defaultEndTime: e.target.value })}
                 />
               </Field>
             </div>
@@ -641,22 +720,30 @@ function ShiftTypesSection({
           </p>
         )}
 
+        {savedHint && (
+          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+            {savedHint} · Google Sheets에 반영됨
+          </p>
+        )}
+
         <button
           type="button"
           className="btn-secondary text-sm w-full sm:w-auto touch-target"
           onClick={() => {
             setDeleteError('');
-            onChange([
-              ...sorted,
+            const nextId = createShiftTypeId('새 근무');
+            persist([
+              ...types,
               {
-                id: createShiftTypeId('새 근무'),
+                id: nextId,
                 name: '새 근무',
                 color: '#C4A35A',
-                sortOrder: sorted.length,
+                sortOrder: types.length,
                 defaultStartTime: '10:00',
                 defaultEndTime: '14:00',
               },
             ]);
+            setNameDrafts((current) => ({ ...current, [nextId]: '새 근무' }));
           }}
         >
           + 근무유형 추가
@@ -733,107 +820,219 @@ function BackupSection() {
 }
 
 function SecuritySection() {
-  const { settings, changePassword } = useSettings();
-  const isFirstSetup = !settings.security.passwordHash;
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
+  const { settings, changePassword, changeEmployeePassword } = useSettings();
+  const isAdminFirstSetup = !settings.security.passwordHash;
+  const isEmployeeFirstSetup = !settings.security.employeePasswordHash;
 
-  const handleSubmit = async () => {
-    setError('');
-    setMessage('');
+  const [adminCurrent, setAdminCurrent] = useState('');
+  const [adminNew, setAdminNew] = useState('');
+  const [adminConfirm, setAdminConfirm] = useState('');
+  const [adminMessage, setAdminMessage] = useState('');
+  const [adminError, setAdminError] = useState('');
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
 
-    if (newPassword !== confirmPassword) {
-      setError('새 비밀번호가 일치하지 않습니다.');
+  const [employeeCurrent, setEmployeeCurrent] = useState('');
+  const [employeeNew, setEmployeeNew] = useState('');
+  const [employeeConfirm, setEmployeeConfirm] = useState('');
+  const [employeeMessage, setEmployeeMessage] = useState('');
+  const [employeeError, setEmployeeError] = useState('');
+  const [employeeSubmitting, setEmployeeSubmitting] = useState(false);
+
+  const handleAdminSubmit = async () => {
+    setAdminError('');
+    setAdminMessage('');
+
+    if (adminNew !== adminConfirm) {
+      setAdminError('새 비밀번호가 일치하지 않습니다.');
       return;
     }
 
-    setSubmitting(true);
-    const result = await changePassword(isFirstSetup ? '' : currentPassword, newPassword);
-    setSubmitting(false);
+    setAdminSubmitting(true);
+    const result = await changePassword(isAdminFirstSetup ? '' : adminCurrent, adminNew);
+    setAdminSubmitting(false);
 
     if (result.ok) {
-      setMessage(result.message);
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
+      setAdminMessage(result.message);
+      setAdminCurrent('');
+      setAdminNew('');
+      setAdminConfirm('');
       return;
     }
 
-    setError(result.message);
+    setAdminError(result.message);
+  };
+
+  const handleEmployeeSubmit = async () => {
+    setEmployeeError('');
+    setEmployeeMessage('');
+
+    if (employeeNew !== employeeConfirm) {
+      setEmployeeError('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    setEmployeeSubmitting(true);
+    const result = await changeEmployeePassword(
+      isEmployeeFirstSetup ? '' : employeeCurrent,
+      employeeNew
+    );
+    setEmployeeSubmitting(false);
+
+    if (result.ok) {
+      setEmployeeMessage(result.message);
+      setEmployeeCurrent('');
+      setEmployeeNew('');
+      setEmployeeConfirm('');
+      return;
+    }
+
+    setEmployeeError(result.message);
   };
 
   return (
-    <SectionCard
-      title="관리자 비밀번호"
-      description="직원 추가·수정·삭제, 시급 변경, 근무표·급여 수정에 사용됩니다"
-    >
-      {isFirstSetup ? (
-        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
-          최초 1회 관리자 비밀번호를 설정해 주세요. 설정 후 잠금 해제에 사용됩니다.
-        </p>
-      ) : (
-        <p className="text-sm text-stone-600">
-          비밀번호는 Google Sheets에 암호화(해시)되어 저장됩니다.
-        </p>
-      )}
+    <div className="space-y-6">
+      <SectionCard
+        title="관리자 비밀번호"
+        description="대시보드, 직원·실근무·급여·매출·재고·발주·설정 메뉴 접근에 사용됩니다"
+      >
+        {isAdminFirstSetup ? (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+            최초 1회 관리자 비밀번호를 설정해 주세요.
+          </p>
+        ) : (
+          <p className="text-sm text-stone-600">
+            비밀번호는 Google Sheets에 해시 형태로 저장됩니다. 로그인 후 8시간 유지, 30분 미사용 시
+            자동 잠금됩니다.
+          </p>
+        )}
 
-      <div className="grid gap-4 max-w-md">
-        {!isFirstSetup && (
-          <Field label="현재 비밀번호">
+        <div className="grid gap-4 max-w-md">
+          {!isAdminFirstSetup && (
+            <Field label="현재 관리자 비밀번호">
+              <input
+                type="password"
+                className="input-luxury"
+                value={adminCurrent}
+                onChange={(e) => setAdminCurrent(e.target.value)}
+                autoComplete="current-password"
+              />
+            </Field>
+          )}
+          <Field label="새 관리자 비밀번호">
             <input
               type="password"
               className="input-luxury"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              autoComplete="current-password"
+              value={adminNew}
+              onChange={(e) => setAdminNew(e.target.value)}
+              autoComplete="new-password"
+              placeholder="4자 이상"
             />
           </Field>
+          <Field label="새 관리자 비밀번호 확인">
+            <input
+              type="password"
+              className="input-luxury"
+              value={adminConfirm}
+              onChange={(e) => setAdminConfirm(e.target.value)}
+              autoComplete="new-password"
+            />
+          </Field>
+        </div>
+
+        {adminError && (
+          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">
+            {adminError}
+          </p>
         )}
-        <Field label={isFirstSetup ? '새 비밀번호' : '새 비밀번호'}>
-          <input
-            type="password"
-            className="input-luxury"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            autoComplete="new-password"
-            placeholder="4자 이상"
-          />
-        </Field>
-        <Field label="새 비밀번호 확인">
-          <input
-            type="password"
-            className="input-luxury"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            autoComplete="new-password"
-          />
-        </Field>
-      </div>
+        {adminMessage && (
+          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+            {adminMessage}
+          </p>
+        )}
 
-      {error && (
-        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">
-          {error}
-        </p>
-      )}
-      {message && (
-        <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
-          {message}
-        </p>
-      )}
+        <button
+          type="button"
+          className="btn-primary text-sm"
+          onClick={handleAdminSubmit}
+          disabled={adminSubmitting || !adminNew || !adminConfirm}
+        >
+          {adminSubmitting ? '저장 중…' : isAdminFirstSetup ? '관리자 비밀번호 설정' : '관리자 비밀번호 변경'}
+        </button>
+      </SectionCard>
 
-      <button
-        type="button"
-        className="btn-primary text-sm"
-        onClick={handleSubmit}
-        disabled={submitting || !newPassword || !confirmPassword}
+      <SectionCard
+        title="직원 비밀번호"
+        description="재고 관리·발주 관리 메뉴 접근에 사용됩니다"
       >
-        {submitting ? '저장 중…' : isFirstSetup ? '비밀번호 설정' : '비밀번호 변경'}
-      </button>
-    </SectionCard>
+        {isEmployeeFirstSetup ? (
+          <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+            직원용 비밀번호를 설정하면 재고·발주 메뉴를 직원 권한으로 열 수 있습니다.
+          </p>
+        ) : (
+          <p className="text-sm text-stone-600">
+            직원 비밀번호는 관리자 비밀번호와 별도입니다. 로그인 후 8시간 유지, 30분 미사용 시 자동
+            잠금됩니다.
+          </p>
+        )}
+
+        <div className="grid gap-4 max-w-md">
+          {!isEmployeeFirstSetup && (
+            <Field label="현재 직원 비밀번호">
+              <input
+                type="password"
+                className="input-luxury"
+                value={employeeCurrent}
+                onChange={(e) => setEmployeeCurrent(e.target.value)}
+                autoComplete="current-password"
+              />
+            </Field>
+          )}
+          <Field label="새 직원 비밀번호">
+            <input
+              type="password"
+              className="input-luxury"
+              value={employeeNew}
+              onChange={(e) => setEmployeeNew(e.target.value)}
+              autoComplete="new-password"
+              placeholder="4자 이상"
+            />
+          </Field>
+          <Field label="새 직원 비밀번호 확인">
+            <input
+              type="password"
+              className="input-luxury"
+              value={employeeConfirm}
+              onChange={(e) => setEmployeeConfirm(e.target.value)}
+              autoComplete="new-password"
+            />
+          </Field>
+        </div>
+
+        {employeeError && (
+          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">
+            {employeeError}
+          </p>
+        )}
+        {employeeMessage && (
+          <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+            {employeeMessage}
+          </p>
+        )}
+
+        <button
+          type="button"
+          className="btn-primary text-sm"
+          onClick={handleEmployeeSubmit}
+          disabled={employeeSubmitting || !employeeNew || !employeeConfirm}
+        >
+          {employeeSubmitting
+            ? '저장 중…'
+            : isEmployeeFirstSetup
+              ? '직원 비밀번호 설정'
+              : '직원 비밀번호 변경'}
+        </button>
+      </SectionCard>
+    </div>
   );
 }
 

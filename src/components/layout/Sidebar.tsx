@@ -2,9 +2,10 @@ import { Lock } from 'lucide-react';
 import type { PageId } from '@/types';
 import { SyncStatusBadge } from '@/components/layout/SyncStatusBadge';
 import { AdminLockButton } from '@/components/auth/AdminLockButton';
-import { useAdminLock } from '@/hooks/useAdminLock';
 import { useAdminLockContext } from '@/contexts/AdminLockContext';
-import { NAV_ITEMS, isNavItemLocked } from '@/lib/navConfig';
+import { getVisibleNavItems, isNavItemLocked } from '@/lib/navConfig';
+import { getRoleLabel } from '@/lib/pageAccess';
+import { SESSION_HOURS, IDLE_LOCK_MINUTES } from '@/lib/authSession';
 import { Coffee, X } from 'lucide-react';
 
 interface SidebarProps {
@@ -21,9 +22,9 @@ function formatSessionExpiry(date: Date | null): string | null {
 
 export function Sidebar({ currentPage, onNavigate, className = '', onClose }: SidebarProps) {
   const isDrawer = Boolean(onClose);
-  const unlocked = useAdminLock();
-  const { sessionExpiresAt } = useAdminLockContext();
+  const { role, unlocked, sessionExpiresAt } = useAdminLockContext();
   const expiryLabel = formatSessionExpiry(sessionExpiresAt);
+  const visibleItems = getVisibleNavItems(role);
 
   return (
     <aside
@@ -38,7 +39,7 @@ export function Sidebar({ currentPage, onNavigate, className = '', onClose }: Si
             <div className="min-w-0">
               <h1 className="heading-display text-base leading-tight">1% PC&CAFE</h1>
               <p className="label-caps mt-0.5 normal-case tracking-wide text-stone-400 text-[10px]">
-                {unlocked ? '관리자 모드' : '조회 모드'}
+                {getRoleLabel(role)} 모드
               </p>
             </div>
           </div>
@@ -57,9 +58,9 @@ export function Sidebar({ currentPage, onNavigate, className = '', onClose }: Si
 
       <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
         <p className="label-caps px-3 mb-3">Menu</p>
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const isActive = currentPage === item.id;
-          const locked = isNavItemLocked(item.id, unlocked);
+          const locked = isNavItemLocked(item.id, role);
           const Icon = item.icon;
 
           return (
@@ -67,7 +68,9 @@ export function Sidebar({ currentPage, onNavigate, className = '', onClose }: Si
               key={item.id}
               type="button"
               onClick={() => onNavigate(item.id)}
-              className={`nav-item touch-nav ${isActive ? 'nav-item-active' : 'nav-item-inactive'}`}
+              className={`nav-item touch-nav ${isActive ? 'nav-item-active' : 'nav-item-inactive'} ${
+                locked ? 'opacity-80' : ''
+              }`}
             >
               <span className={isActive ? 'text-stone-700' : 'text-stone-400'}>
                 <Icon size={18} strokeWidth={1.75} />
@@ -92,11 +95,14 @@ export function Sidebar({ currentPage, onNavigate, className = '', onClose }: Si
         </div>
         <p className="text-[10px] text-stone-400 text-center px-2 leading-relaxed">
           {unlocked && expiryLabel ? (
-            <>관리자 모드 · {expiryLabel}까지 유지 (새로고침·브라우저 재시작 후에도 유지)</>
+            <>
+              {getRoleLabel(role)} · {expiryLabel}까지 유지 ({SESSION_HOURS}시간 · 미사용{' '}
+              {IDLE_LOCK_MINUTES}분 시 잠금)
+            </>
           ) : (
             <>
               <Lock size={10} className="inline mr-1" />
-              잠긴 메뉴는 비밀번호 입력 후 이용
+              자물쇠 메뉴는 로그인 후 이용
             </>
           )}
         </p>

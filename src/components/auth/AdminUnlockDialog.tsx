@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Lock } from 'lucide-react';
 import { ModalOverlay } from '@/components/ui/ModalOverlay';
-import { unlockAdmin } from '@/lib/adminLockSession';
+import { IDLE_LOCK_MINUTES, unlockWithPassword } from '@/lib/authSession';
 
 interface AdminUnlockDialogProps {
   open: boolean;
@@ -15,7 +15,7 @@ export function AdminUnlockDialog({
   open,
   onClose,
   onUnlocked,
-  title = '관리자 인증',
+  title = '로그인',
   sessionHours = 8,
 }: AdminUnlockDialogProps) {
   const [password, setPassword] = useState('');
@@ -33,7 +33,7 @@ export function AdminUnlockDialog({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
-    const result = await unlockAdmin(password);
+    const result = await unlockWithPassword(password);
     setSubmitting(false);
 
     if (result.ok) {
@@ -57,7 +57,9 @@ export function AdminUnlockDialog({
           </div>
           <div>
             <h2 className="text-base font-semibold text-stone-800">{title}</h2>
-            <p className="text-xs text-stone-500 mt-0.5">관리자 비밀번호를 입력하세요</p>
+            <p className="text-xs text-stone-500 mt-0.5">
+              관리자 또는 직원 비밀번호를 입력하세요
+            </p>
           </div>
         </div>
 
@@ -92,13 +94,13 @@ export function AdminUnlockDialog({
               취소
             </button>
             <button type="submit" disabled={submitting} className="btn-primary flex-1">
-              {submitting ? '확인 중…' : '관리자 모드 시작'}
+              {submitting ? '확인 중…' : '로그인'}
             </button>
           </div>
         </form>
 
         <p className="text-[11px] text-stone-400 text-center leading-relaxed">
-          인증 후 {sessionHours}시간 동안 관리자 모드가 유지됩니다.
+          로그인 후 {sessionHours}시간 유지 · {IDLE_LOCK_MINUTES}분 미사용 시 자동 잠금
         </p>
       </div>
     </ModalOverlay>

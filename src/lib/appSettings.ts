@@ -56,6 +56,7 @@ export interface ThemeSettings {
 
 export interface SecuritySettings {
   passwordHash: string;
+  employeePasswordHash: string;
 }
 
 export interface AppSettings {
@@ -116,6 +117,7 @@ export function createDefaultAppSettings(
     },
     security: {
       passwordHash: '',
+      employeePasswordHash: '',
     },
   };
 }
@@ -162,7 +164,11 @@ export function migrateAppSettings(
         : shiftTypes
     ),
     theme: { ...defaults.theme, ...(input.theme ?? {}) },
-    security: { ...defaults.security, ...(input.security ?? {}) },
+    security: {
+      passwordHash: input.security?.passwordHash ?? defaults.security.passwordHash,
+      employeePasswordHash:
+        input.security?.employeePasswordHash ?? defaults.security.employeePasswordHash,
+    },
   };
 }
 

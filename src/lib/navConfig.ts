@@ -1,4 +1,5 @@
 import type { PageId } from '@/types';
+import type { AuthRole } from '@/lib/authSession';
 import {
   CalendarDays,
   ClipboardCheck,
@@ -12,7 +13,7 @@ import {
   Megaphone,
   type LucideIcon,
 } from 'lucide-react';
-import { requiresPageAuth } from '@/lib/pageAccess';
+import { isNavItemLocked as isNavItemLockedByRole, isPageVisibleInNav } from '@/lib/pageAccess';
 
 export interface NavItemConfig {
   id: PageId;
@@ -33,6 +34,10 @@ export const NAV_ITEMS: NavItemConfig[] = [
   { id: 'settings', label: '설정', icon: Settings },
 ];
 
-export function isNavItemLocked(pageId: PageId, adminUnlocked: boolean): boolean {
-  return requiresPageAuth(pageId) && !adminUnlocked;
+export function getVisibleNavItems(role: AuthRole): NavItemConfig[] {
+  return NAV_ITEMS.filter((item) => isPageVisibleInNav(item.id, role));
+}
+
+export function isNavItemLocked(pageId: PageId, role: AuthRole): boolean {
+  return isNavItemLockedByRole(pageId, role);
 }

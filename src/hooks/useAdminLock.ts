@@ -1,16 +1,28 @@
 import { useEffect, useState } from 'react';
-import { ADMIN_LOCK_CHANGED_EVENT, isAdminUnlocked } from '@/lib/adminLockSession';
+import { AUTH_CHANGED_EVENT, getCurrentRole, isAdminRole } from '@/lib/authSession';
 
 export function useAdminLock(): boolean {
-  const [unlocked, setUnlocked] = useState(isAdminUnlocked);
+  const [unlocked, setUnlocked] = useState(isAdminRole);
 
   useEffect(() => {
-    const sync = () => setUnlocked(isAdminUnlocked());
-    window.addEventListener(ADMIN_LOCK_CHANGED_EVENT, sync);
-    return () => window.removeEventListener(ADMIN_LOCK_CHANGED_EVENT, sync);
+    const sync = () => setUnlocked(isAdminRole());
+    window.addEventListener(AUTH_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, sync);
   }, []);
 
   return unlocked;
+}
+
+export function useAuthRole() {
+  const [role, setRole] = useState(getCurrentRole);
+
+  useEffect(() => {
+    const sync = () => setRole(getCurrentRole());
+    window.addEventListener(AUTH_CHANGED_EVENT, sync);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, sync);
+  }, []);
+
+  return role;
 }
 
 /** Prefer useAdminLockContext for lock/unlock actions */

@@ -49,7 +49,12 @@ import { getMonthlyPayroll } from '@/lib/payroll';
 import {
   DEFAULT_SCHEDULE_SHIFT_TYPES,
   migrateShiftTypes,
+  sortShiftTypes,
 } from '@/lib/scheduleShiftTypes';
+import {
+  filterShiftsForBatchDelete,
+  type ScheduleBatchDeleteParams,
+} from '@/lib/scheduleBatchDelete';
 
 export type {
   AppStorage,
@@ -695,6 +700,40 @@ export function deleteShift(shiftId: string): ScheduleShift[] {
   const updated = data.scheduleShifts.filter((s) => s.id !== shiftId);
   saveScheduleShifts(updated);
   return updated;
+}
+
+export function countScheduleShiftsForBatchDelete(
+  params: ScheduleBatchDeleteParams
+): number {
+  const data = readStorage();
+  return filterShiftsForBatchDelete(
+    data.scheduleShifts,
+    params,
+    data.employees
+  ).length;
+}
+
+export function deleteScheduleShiftsBatch(
+  params: ScheduleBatchDeleteParams
+): ScheduleShift[] {
+  const data = readStorage();
+  const targets = new Set(
+    filterShiftsForBatchDelete(data.scheduleShifts, params, data.employees).map(
+      (s) => s.id
+    )
+  );
+  const updated = data.scheduleShifts.filter((s) => !targets.has(s.id));
+  saveScheduleShifts(updated);
+  return updated;
+}
+
+export function saveShiftTypes(types: ShiftType[]): ShiftType[] {
+  const data = readStorage();
+  const normalized = sortShiftTypes(types);
+  data.appSettings = { ...data.appSettings, shiftTypes: normalized };
+  writeStorage(data);
+  notifySettingsChanged();
+  return normalized;
 }
 
 function toEmployee(emp: EmployeeRow): Employee {

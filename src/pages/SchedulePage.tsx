@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { ScheduleHeader, type ViewMode } from '@/components/schedule/ScheduleHeader';
 import { ScheduleCalendar } from '@/components/schedule/ScheduleCalendar';
 import { ShiftModal } from '@/components/schedule/ShiftModal';
+import { ScheduleBatchDeleteDialog } from '@/components/schedule/ScheduleBatchDeleteDialog';
 import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { useScheduleShifts } from '@/hooks/useScheduleShifts';
 import {
@@ -11,11 +12,12 @@ import {
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 
 export function SchedulePage() {
-  const { unlocked, requireUnlock } = useAdminLockContext();
+  const { isAdmin, requireAdmin } = useAdminLockContext();
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
   const {
     shifts,
@@ -34,6 +36,7 @@ export function SchedulePage() {
     closeModal,
     handleSave,
     handleDelete,
+    refresh,
   } = useScheduleShifts(year, month);
 
   const goToPrevMonth = () => {
@@ -63,26 +66,26 @@ export function SchedulePage() {
   };
 
   const guardedCreate = (defaults?: { day: number; rowId: ShiftRowId }) => {
-    requireUnlock(() => openCreate(defaults));
+    requireAdmin(() => openCreate(defaults));
   };
 
   const guardedEdit = (shift: ScheduleShift) => {
-    requireUnlock(() => openEdit(shift));
+    requireAdmin(() => openEdit(shift));
   };
 
   const guardedDrop = (shiftId: string, day: number, rowId: ShiftRowId) => {
-    if (!unlocked) return;
+    if (!isAdmin) return;
     handleDrop(shiftId, day, rowId);
   };
 
   const guardedResize = (shiftId: string, deltaHours: number) => {
-    if (!unlocked) return;
+    if (!isAdmin) return;
     handleResize(shiftId, deltaHours);
   };
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      {!unlocked && (
+      {!isAdmin && (
         <div className="px-4 pt-3 md:px-6 shrink-0">
           <p className="text-xs text-stone-500 bg-stone-100/80 border border-stone-200 rounded-xl px-3 py-2">
             근무표는 조회만 가능합니다. 수정하려면 관리자 인증이 필요합니다.
@@ -101,7 +104,8 @@ export function SchedulePage() {
         canGoNext={canGoNextScheduleMonth(year, month)}
         onToday={goToToday}
         onCreateShift={() => guardedCreate()}
-        readOnly={!unlocked}
+        onBatchDelete={() => requireAdmin(() => setBatchDeleteOpen(true))}
+        readOnly={!isAdmin}
       />
 
       {viewMode === 'monthly' && (
@@ -118,7 +122,7 @@ export function SchedulePage() {
           onResize={guardedResize}
           onEditShift={guardedEdit}
           onCreateInCell={(day, rowId) => guardedCreate({ day, rowId })}
-          readOnly={!unlocked}
+          readOnly={!isAdmin}
         />
       )}
 
@@ -134,7 +138,7 @@ export function SchedulePage() {
         </div>
       )}
 
-      {modalMode && unlocked && (
+      {modalMode && isAdmin && (
         <ShiftModal
           mode={modalMode}
           shift={editingShift}
@@ -147,6 +151,14 @@ export function SchedulePage() {
           onClose={closeModal}
         />
       )}
+
+      <ScheduleBatchDeleteDialog
+        open={batchDeleteOpen}
+        year={year}
+        month={month}
+        onClose={() => setBatchDeleteOpen(false)}
+        onDeleted={refresh}
+      />
     </div>
   );
 }

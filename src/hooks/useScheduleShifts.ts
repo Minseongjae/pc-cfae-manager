@@ -149,5 +149,6 @@ export function useScheduleShifts(year: number, month: number) {
     closeModal,
     handleSave,
     handleDelete,
+    refresh,
   };
 }

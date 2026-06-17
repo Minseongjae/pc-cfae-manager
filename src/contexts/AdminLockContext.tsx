@@ -10,65 +10,89 @@ import {
 } from 'react';
 import { AdminUnlockDialog } from '@/components/auth/AdminUnlockDialog';
 import {
-  ADMIN_LOCK_CHANGED_EVENT,
-  ADMIN_SESSION_HOURS,
-  getAdminSessionExpiresAt,
-  isAdminUnlocked,
-  lockAdmin,
-} from '@/lib/adminLockSession';
-import { requiresPageAuth, usesBlurGate } from '@/lib/pageAccess';
+  AUTH_CHANGED_EVENT,
+  SESSION_HOURS,
+  checkIdleLock,
+  getAuthSessionExpiresAt,
+  getCurrentRole,
+  isAdminRole,
+  logout,
+  recordActivity,
+  type AuthRole,
+} from '@/lib/authSession';
+import { canAccessPage, getPageRequiredRole } from '@/lib/pageAccess';
 import type { PageId } from '@/types';
 
 interface AdminLockContextValue {
+  role: AuthRole;
   unlocked: boolean;
+  isAdmin: boolean;
+  isEmployee: boolean;
   sessionExpiresAt: Date | null;
+  canAccessPage: (pageId: PageId) => boolean;
   logout: () => void;
   openUnlockDialog: (onUnlocked?: () => void) => void;
   requireUnlock: (onUnlocked?: () => void) => boolean;
+  requireAdmin: (onUnlocked?: () => void) => boolean;
   requestPageNavigation: (pageId: PageId, navigate: () => void) => void;
 }
 
 const AdminLockContext = createContext<AdminLockContextValue | null>(null);
 
-function readUnlockedState(): boolean {
-  return isAdminUnlocked();
+function readRole(): AuthRole {
+  return getCurrentRole();
 }
 
 export function AdminLockProvider({ children }: { children: ReactNode }) {
-  const [unlocked, setUnlocked] = useState(readUnlockedState);
+  const [role, setRole] = useState<AuthRole>(readRole);
   const [sessionExpiresAt, setSessionExpiresAt] = useState<Date | null>(() =>
-    getAdminSessionExpiresAt()
+    getAuthSessionExpiresAt()
   );
   const [dialogOpen, setDialogOpen] = useState(false);
   const pendingActionRef = useRef<(() => void) | null>(null);
 
   const sync = useCallback(() => {
-    setUnlocked(readUnlockedState());
-    setSessionExpiresAt(getAdminSessionExpiresAt());
+    setRole(readRole());
+    setSessionExpiresAt(getAuthSessionExpiresAt());
   }, []);
 
   useEffect(() => {
-    window.addEventListener(ADMIN_LOCK_CHANGED_EVENT, sync);
-    return () => window.removeEventListener(ADMIN_LOCK_CHANGED_EVENT, sync);
+    const handler = () => sync();
+    window.addEventListener(AUTH_CHANGED_EVENT, handler);
+    return () => window.removeEventListener(AUTH_CHANGED_EVENT, handler);
   }, [sync]);
 
   useEffect(() => {
-    const timer = window.setInterval(sync, 60_000);
+    const timer = window.setInterval(() => {
+      if (checkIdleLock()) sync();
+    }, 60_000);
     return () => window.clearInterval(timer);
   }, [sync]);
 
-  const logout = useCallback(() => {
-    lockAdmin();
+  useEffect(() => {
+    const onActivity = () => recordActivity();
+    const events = ['mousedown', 'keydown', 'touchstart', 'click', 'scroll'];
+    events.forEach((event) => window.addEventListener(event, onActivity, { passive: true }));
+    return () => {
+      events.forEach((event) => window.removeEventListener(event, onActivity));
+    };
   }, []);
+
+  const canAccess = useCallback((pageId: PageId) => canAccessPage(pageId, role), [role]);
+
+  const handleLogout = useCallback(() => {
+    logout();
+    sync();
+  }, [sync]);
 
   const openUnlockDialog = useCallback((onUnlocked?: () => void) => {
     pendingActionRef.current = onUnlocked ?? null;
     setDialogOpen(true);
   }, []);
 
-  const requireUnlock = useCallback(
+  const requireAdmin = useCallback(
     (onUnlocked?: () => void): boolean => {
-      if (isAdminUnlocked()) {
+      if (isAdminRole()) {
         onUnlocked?.();
         return true;
       }
@@ -78,19 +102,21 @@ export function AdminLockProvider({ children }: { children: ReactNode }) {
     [openUnlockDialog]
   );
 
+  const requireUnlock = requireAdmin;
+
   const requestPageNavigation = useCallback(
     (pageId: PageId, navigate: () => void) => {
-      if (!requiresPageAuth(pageId) || isAdminUnlocked()) {
+      if (canAccessPage(pageId, role)) {
         navigate();
         return;
       }
-      if (usesBlurGate(pageId)) {
-        navigate();
-        return;
-      }
-      openUnlockDialog(navigate);
+      openUnlockDialog(() => {
+        if (canAccessPage(pageId, readRole())) {
+          navigate();
+        }
+      });
     },
-    [openUnlockDialog]
+    [role, openUnlockDialog]
   );
 
   const handleDialogClose = useCallback(() => {
@@ -107,14 +133,28 @@ export function AdminLockProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(
     () => ({
-      unlocked,
+      role,
+      unlocked: role !== 'guest',
+      isAdmin: role === 'admin',
+      isEmployee: role === 'employee' || role === 'admin',
       sessionExpiresAt,
-      logout,
+      canAccessPage: canAccess,
+      logout: handleLogout,
       openUnlockDialog,
       requireUnlock,
+      requireAdmin,
       requestPageNavigation,
     }),
-    [unlocked, sessionExpiresAt, logout, openUnlockDialog, requireUnlock, requestPageNavigation]
+    [
+      role,
+      sessionExpiresAt,
+      canAccess,
+      handleLogout,
+      openUnlockDialog,
+      requireUnlock,
+      requireAdmin,
+      requestPageNavigation,
+    ]
   );
 
   return (
@@ -124,7 +164,7 @@ export function AdminLockProvider({ children }: { children: ReactNode }) {
         open={dialogOpen}
         onClose={handleDialogClose}
         onUnlocked={handleUnlocked}
-        sessionHours={ADMIN_SESSION_HOURS}
+        sessionHours={SESSION_HOURS}
       />
     </AdminLockContext.Provider>
   );
@@ -136,4 +176,11 @@ export function useAdminLockContext(): AdminLockContextValue {
     throw new Error('useAdminLockContext must be used within AdminLockProvider');
   }
   return ctx;
+}
+
+export function getRequiredRoleLabel(pageId: PageId): string {
+  const required = getPageRequiredRole(pageId);
+  if (required === 'admin') return '관리자';
+  if (required === 'employee') return '직원';
+  return '';
 }

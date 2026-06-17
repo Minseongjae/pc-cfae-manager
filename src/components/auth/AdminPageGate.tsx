@@ -1,16 +1,18 @@
 import { useState, type FormEvent } from 'react';
 import { Lock } from 'lucide-react';
-import { unlockAdmin } from '@/lib/adminLockSession';
+import { IDLE_LOCK_MINUTES, SESSION_HOURS, unlockWithPassword } from '@/lib/authSession';
+import { getPageRequiredRole } from '@/lib/pageAccess';
+import type { PageId } from '@/types';
 
 interface AdminPageGateProps {
+  pageId?: PageId;
   title?: string;
   description?: string;
 }
 
-export function AdminPageGate({
-  title = '관리자 인증',
-  description = '이 메뉴는 관리자 비밀번호 입력 후 이용할 수 있습니다.',
-}: AdminPageGateProps) {
+export function AdminPageGate({ pageId, title, description }: AdminPageGateProps) {
+  const required = pageId ? getPageRequiredRole(pageId) : 'admin';
+  const roleLabel = required === 'employee' ? '직원' : '관리자';
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -18,10 +20,15 @@ export function AdminPageGate({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setSubmitting(true);
-    const result = await unlockAdmin(password);
+    const result = await unlockWithPassword(password);
     setSubmitting(false);
 
     if (result.ok) {
+      if (required === 'admin' && result.role !== 'admin') {
+        setError('이 메뉴는 관리자 비밀번호가 필요합니다.');
+        setPassword('');
+        return;
+      }
       setPassword('');
       setError('');
       return;
@@ -40,8 +47,12 @@ export function AdminPageGate({
               <Lock className="text-stone-600" size={26} strokeWidth={1.75} />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-stone-800">{title}</h2>
-              <p className="text-sm text-stone-500 mt-1">{description}</p>
+              <h2 className="text-lg font-semibold text-stone-800">
+                {title ?? `${roleLabel} 인증`}
+              </h2>
+              <p className="text-sm text-stone-500 mt-1">
+                {description ?? `이 메뉴는 ${roleLabel} 비밀번호 입력 후 이용할 수 있습니다.`}
+              </p>
             </div>
           </div>
 
@@ -60,7 +71,7 @@ export function AdminPageGate({
                   setPassword(e.target.value);
                   if (error) setError('');
                 }}
-                placeholder="관리자 비밀번호"
+                placeholder={`${roleLabel} 비밀번호`}
                 autoFocus
               />
             </div>
@@ -72,12 +83,12 @@ export function AdminPageGate({
             )}
 
             <button type="submit" disabled={submitting} className="btn-primary w-full touch-target">
-              {submitting ? '확인 중…' : '관리자 모드 시작'}
+              {submitting ? '확인 중…' : '로그인'}
             </button>
           </form>
 
           <p className="text-[11px] text-stone-400 text-center leading-relaxed">
-            인증 후 8시간 동안 관리자 모드가 유지됩니다.
+            로그인 후 {SESSION_HOURS}시간 유지 · {IDLE_LOCK_MINUTES}분 미사용 시 자동 잠금
           </p>
         </div>
       </div>

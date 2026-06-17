@@ -18,7 +18,7 @@ export function RightPanel({ className = '' }: { className?: string }) {
   const [schoolVersion, setSchoolVersion] = useState(0);
   const { employees, openCreate, openEdit } = useEmployees();
   const { settings } = useSettings();
-  const { unlocked, requireUnlock } = useAdminLockContext();
+  const { isAdmin, requireAdmin } = useAdminLockContext();
 
   useEffect(() => {
     const handler = () => setSchoolVersion((v) => v + 1);
@@ -37,8 +37,8 @@ export function RightPanel({ className = '' }: { className?: string }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const handleCreate = () => requireUnlock(() => openCreate());
-  const handleEdit = (employee: EmployeeRow) => requireUnlock(() => openEdit(employee));
+  const handleCreate = () => requireAdmin(() => openCreate());
+  const handleEdit = (employee: EmployeeRow) => requireAdmin(() => openEdit(employee));
 
   return (
     <aside
@@ -50,12 +50,12 @@ export function RightPanel({ className = '' }: { className?: string }) {
             <h2 className="text-sm font-semibold text-stone-700">직원 관리</h2>
             <p className="text-[11px] text-stone-400 mt-0.5">
               {employees.length}명 등록
-              {!unlocked && ' · 잠금'}
+              {!isAdmin && ' · 관리자 전용'}
             </p>
           </div>
           <div className="flex items-center gap-1 shrink-0">
             <AdminLockButton size="sm" showLabel={false} />
-            {unlocked && (
+            {isAdmin && (
               <button className="btn-primary text-xs py-2 px-3" onClick={handleCreate}>
                 <Plus size={14} />
                 추가
@@ -103,7 +103,7 @@ export function RightPanel({ className = '' }: { className?: string }) {
                     </p>
                   </div>
                 </div>
-                {unlocked && (
+                {isAdmin && (
                   <button
                     className="btn-ghost p-1 opacity-0 group-hover:opacity-100"
                     onClick={() => handleEdit(emp)}
