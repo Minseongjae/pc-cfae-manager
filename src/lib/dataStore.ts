@@ -21,6 +21,7 @@ import { INVENTORY_CHANGED_EVENT } from '@/lib/inventory';
 import { PURCHASE_ORDERS_CHANGED_EVENT } from '@/lib/purchaseOrders';
 import { SALES_CHANGED_EVENT } from '@/lib/sales';
 import { migrateShiftTypes } from '@/lib/scheduleShiftTypes';
+import { normalizePurchaseCategoryId } from '@/lib/purchaseOrders';
 
 export const DATA_SYNC_CHANGED_EVENT = 'data-sync-changed';
 export const SCHEDULES_CHANGED_EVENT = 'schedules-changed';
@@ -118,7 +119,10 @@ export function normalizeAppStorage(raw: Partial<AppStorage>, fallback: AppStora
       ? raw.inventoryItems
       : fallback.inventoryItems,
     purchaseOrders: Array.isArray(raw.purchaseOrders)
-      ? raw.purchaseOrders
+      ? raw.purchaseOrders.map((order) => ({
+          ...order,
+          categoryId: normalizePurchaseCategoryId(order.categoryId),
+        }))
       : fallback.purchaseOrders,
     salesRecords: Array.isArray(raw.salesRecords) ? raw.salesRecords : fallback.salesRecords,
     notices: Array.isArray(raw.notices) ? raw.notices : (fallback.notices ?? []),

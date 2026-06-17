@@ -62,6 +62,7 @@ export interface RemoteDataPayload {
   }>;
   purchaseOrders: Array<{
     id: string;
+    categoryId: string;
     productName: string;
     quantity: number;
     status: PurchaseOrder['status'];
@@ -244,6 +245,7 @@ export function toRemotePayload(data: AppStorage): Omit<RemoteDataPayload, 'sync
     })),
     purchaseOrders: data.purchaseOrders.map((order) => ({
       id: order.id,
+      categoryId: order.categoryId || 'po-1',
       productName: order.productName,
       quantity: order.quantity,
       status: order.status,
@@ -347,6 +349,7 @@ export function fromRemotePayload(
     })),
     purchaseOrders: (remote.purchaseOrders ?? []).map((order) => ({
       id: order.id,
+      categoryId: order.categoryId || 'po-1',
       productName: order.productName,
       quantity: order.quantity,
       status: order.status,

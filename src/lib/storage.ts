@@ -43,7 +43,12 @@ import type {
   ShiftInput,
 } from '@/lib/appStorage';
 import { isLowStock, INVENTORY_CHANGED_EVENT } from '@/lib/inventory';
-import { PURCHASE_ORDERS_CHANGED_EVENT } from '@/lib/purchaseOrders';
+import {
+  PURCHASE_ORDERS_CHANGED_EVENT,
+  migratePurchaseOrderCategories,
+  normalizePurchaseCategoryId,
+  type PurchaseOrderCategory,
+} from '@/lib/purchaseOrders';
 import { dateKey, SALES_CHANGED_EVENT } from '@/lib/sales';
 import { getMonthlyPayroll } from '@/lib/payroll';
 import {
@@ -846,17 +851,40 @@ export function deleteInventoryItem(id: string): void {
   window.dispatchEvent(new Event(INVENTORY_CHANGED_EVENT));
 }
 
-export function getPurchaseOrders(): PurchaseOrder[] {
-  return readStorage().purchaseOrders;
+export function getPurchaseOrders(categoryId?: string): PurchaseOrder[] {
+  const orders = readStorage().purchaseOrders.map((order) => ({
+    ...order,
+    categoryId: normalizePurchaseCategoryId(order.categoryId),
+  }));
+  if (!categoryId) return orders;
+  const normalized = normalizePurchaseCategoryId(categoryId);
+  return orders.filter((order) => order.categoryId === normalized);
 }
 
-export function savePurchaseOrder(
+export function getPurchaseOrderCategories(): PurchaseOrderCategory[] {
+  return migratePurchaseOrderCategories(
+    readStorage().appSettings.purchaseOrderCategories
+  );
+}
+
+export function savePurchaseOrderCategoryName(id: string, name: string): PurchaseOrderCategory[] {
+  const data = readStorage();
+  const categories = migratePurchaseOrderCategories(data.appSettings.purchaseOrderCategories).map(
+    (row) => (row.id === id ? { ...row, name: name.trim() || row.name } : row)
+  );
+  data.appSettings = { ...data.appSettings, purchaseOrderCategories: categories };
+  writeStorage(data);
+  notifySettingsChanged();
+  return categories;
+}
+
+function normalizePurchaseOrderInput(
   input: Omit<PurchaseOrder, 'id' | 'updatedAt'> & { id?: string }
 ): PurchaseOrder {
-  const data = readStorage();
   const now = new Date().toISOString();
-  const order: PurchaseOrder = {
+  return {
     id: input.id ?? createId('po'),
+    categoryId: normalizePurchaseCategoryId(input.categoryId),
     productName: input.productName.trim(),
     quantity: Math.max(1, input.quantity),
     status: input.status,
@@ -864,29 +892,40 @@ export function savePurchaseOrder(
     note: input.note,
     updatedAt: now,
   };
+}
+
+export function savePurchaseOrder(
+  input: Omit<PurchaseOrder, 'id' | 'updatedAt'> & { id?: string }
+): PurchaseOrder {
+  const data = readStorage();
+  const order = normalizePurchaseOrderInput(input);
   const index = data.purchaseOrders.findIndex((row) => row.id === order.id);
-  if (index >= 0) data.purchaseOrders[index] = order;
-  else data.purchaseOrders.push(order);
+  data.purchaseOrders =
+    index >= 0
+      ? data.purchaseOrders.map((row, i) => (i === index ? order : row))
+      : [...data.purchaseOrders, order];
   writeStorage(data);
   window.dispatchEvent(new Event(PURCHASE_ORDERS_CHANGED_EVENT));
   return order;
 }
 
-export function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus): void {
+export function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus): PurchaseOrder[] {
   const data = readStorage();
-  const order = data.purchaseOrders.find((row) => row.id === id);
-  if (!order) return;
-  order.status = status;
-  order.updatedAt = new Date().toISOString();
+  const now = new Date().toISOString();
+  data.purchaseOrders = data.purchaseOrders.map((row) =>
+    row.id === id ? { ...row, status, updatedAt: now } : row
+  );
   writeStorage(data);
   window.dispatchEvent(new Event(PURCHASE_ORDERS_CHANGED_EVENT));
+  return data.purchaseOrders;
 }
 
-export function deletePurchaseOrder(id: string): void {
+export function deletePurchaseOrder(id: string): PurchaseOrder[] {
   const data = readStorage();
   data.purchaseOrders = data.purchaseOrders.filter((order) => order.id !== id);
   writeStorage(data);
   window.dispatchEvent(new Event(PURCHASE_ORDERS_CHANGED_EVENT));
+  return data.purchaseOrders;
 }
 
 export function getSalesRecords(): SalesRecord[] {

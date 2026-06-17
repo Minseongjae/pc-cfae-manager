@@ -286,18 +286,43 @@ export function inventoryToRow(item: InventoryItem): string[] {
 }
 
 const PURCHASE_STATUSES: PurchaseOrderStatus[] = ['scheduled', 'ordered', 'received'];
+const PURCHASE_CATEGORY_IDS = ['po-1', 'po-2', 'po-3', 'po-4'];
+const LEGACY_PURCHASE_HEADERS = [
+  'id',
+  'product_name',
+  'quantity',
+  'status',
+  'scheduled_date',
+  'note',
+  'updated_at',
+];
+
+function parsePurchaseStatus(value: string): PurchaseOrderStatus {
+  return PURCHASE_STATUSES.includes(value as PurchaseOrderStatus)
+    ? (value as PurchaseOrderStatus)
+    : 'scheduled';
+}
 
 export function purchaseOrderFromRow(headers: string[], row: string[]): PurchaseOrder | null {
-  const raw = rowToObject(headers, row);
-  if (!raw.id || !raw.product_name) return null;
-  const status = PURCHASE_STATUSES.includes(raw.status as PurchaseOrderStatus)
-    ? (raw.status as PurchaseOrderStatus)
-    : 'scheduled';
+  if (!row[0]) return null;
+
+  const categorySlot = row[1] ?? '';
+  const isNewFormat =
+    headers.includes('category_id') &&
+    PURCHASE_CATEGORY_IDS.includes(categorySlot);
+
+  const raw = rowToObject(isNewFormat ? headers : LEGACY_PURCHASE_HEADERS, row);
+  if (!raw.id) return null;
+
+  const productName = isNewFormat ? raw.product_name : raw.product_name || categorySlot;
+  if (!productName) return null;
+
   return {
     id: raw.id,
-    productName: raw.product_name,
-    quantity: num(raw.quantity, 1),
-    status,
+    categoryId: isNewFormat ? categorySlot : 'po-1',
+    productName,
+    quantity: num(isNewFormat ? raw.quantity : raw.quantity, 1),
+    status: parsePurchaseStatus(raw.status),
     scheduledDate: raw.scheduled_date || '',
     note: raw.note || '',
     updatedAt: raw.updated_at || new Date(0).toISOString(),
@@ -307,6 +332,7 @@ export function purchaseOrderFromRow(headers: string[], row: string[]): Purchase
 export function purchaseOrderToRow(order: PurchaseOrder): string[] {
   return [
     order.id,
+    order.categoryId || 'po-1',
     order.productName,
     String(order.quantity),
     order.status,

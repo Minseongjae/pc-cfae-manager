@@ -84,6 +84,7 @@ export type PurchaseOrderStatus = 'scheduled' | 'ordered' | 'received';
 
 export interface PurchaseOrder {
   id: string;
+  categoryId: string;
   productName: string;
   quantity: number;
   status: PurchaseOrderStatus;

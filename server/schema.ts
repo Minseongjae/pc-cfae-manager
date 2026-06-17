@@ -72,6 +72,7 @@ export const HEADERS = {
   ],
   purchaseOrders: [
     'id',
+    'category_id',
     'product_name',
     'quantity',
     'status',

@@ -1,6 +1,11 @@
 import { migrateShiftTypes, normalizeHexColor } from '@/lib/scheduleShiftTypes';
 import type { SchoolSchedule } from '@/lib/appStorage';
 import type { ShiftType } from '@/types';
+import {
+  DEFAULT_PURCHASE_ORDER_CATEGORIES,
+  migratePurchaseOrderCategories,
+  type PurchaseOrderCategory,
+} from '@/lib/purchaseOrders';
 import { normalizeOptionalNumber } from '@/lib/numericInput';
 
 export const SETTINGS_CHANGED_EVENT = 'settings-changed';
@@ -67,6 +72,7 @@ export interface AppSettings {
   shiftTypes: ShiftType[];
   theme: ThemeSettings;
   security: SecuritySettings;
+  purchaseOrderCategories: PurchaseOrderCategory[];
 }
 
 export const DEFAULT_POSITIONS: PositionDefinition[] = [
@@ -119,6 +125,7 @@ export function createDefaultAppSettings(
       passwordHash: '',
       employeePasswordHash: '',
     },
+    purchaseOrderCategories: DEFAULT_PURCHASE_ORDER_CATEGORIES.map((row) => ({ ...row })),
   };
 }
 
@@ -169,6 +176,9 @@ export function migrateAppSettings(
       employeePasswordHash:
         input.security?.employeePasswordHash ?? defaults.security.employeePasswordHash,
     },
+    purchaseOrderCategories: migratePurchaseOrderCategories(
+      input.purchaseOrderCategories ?? defaults.purchaseOrderCategories
+    ),
   };
 }
 
