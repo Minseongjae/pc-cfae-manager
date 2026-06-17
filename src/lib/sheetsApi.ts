@@ -76,6 +76,14 @@ export interface RemoteDataPayload {
     note: string;
     updatedAt: string;
   }>;
+  notices: Array<{
+    id: string;
+    title: string;
+    body: string;
+    isImportant: boolean;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   syncToken: string;
 }
 
@@ -250,6 +258,14 @@ export function toRemotePayload(data: AppStorage): Omit<RemoteDataPayload, 'sync
       note: record.note,
       updatedAt: record.updatedAt || now,
     })),
+    notices: (data.notices ?? []).map((notice) => ({
+      id: notice.id,
+      title: notice.title,
+      body: notice.body,
+      isImportant: notice.isImportant,
+      createdAt: notice.createdAt,
+      updatedAt: notice.updatedAt || now,
+    })),
   };
 }
 
@@ -344,6 +360,14 @@ export function fromRemotePayload(
       amount: record.amount,
       note: record.note,
       updatedAt: record.updatedAt,
+    })),
+    notices: (remote.notices ?? defaults.notices ?? []).map((notice) => ({
+      id: notice.id,
+      title: notice.title,
+      body: notice.body,
+      isImportant: Boolean(notice.isImportant),
+      createdAt: notice.createdAt,
+      updatedAt: notice.updatedAt,
     })),
     appSettings,
   };

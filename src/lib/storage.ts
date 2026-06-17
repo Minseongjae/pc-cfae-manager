@@ -55,6 +55,12 @@ import {
   filterShiftsForBatchDelete,
   type ScheduleBatchDeleteParams,
 } from '@/lib/scheduleBatchDelete';
+import {
+  createNoticeId,
+  NOTICES_CHANGED_EVENT,
+  sortNotices,
+  type Notice,
+} from '@/lib/notices';
 
 export type {
   AppStorage,
@@ -107,6 +113,7 @@ function createMinimalSeedData(): AppStorage {
     employees: [],
     shiftTypes,
     scheduleShifts: [],
+    notices: [],
     schoolSchedules,
     actualWorkRecords: [],
     payrollAdjustmentRecords: [],
@@ -125,6 +132,7 @@ function createDefaultData(): AppStorage {
     employees: defaultEmployees(),
     shiftTypes,
     scheduleShifts: [...mockShifts],
+    notices: [],
     schoolSchedules,
     actualWorkRecords: [],
     payrollAdjustmentRecords: [],
@@ -725,6 +733,63 @@ export function deleteScheduleShiftsBatch(
   const updated = data.scheduleShifts.filter((s) => !targets.has(s.id));
   saveScheduleShifts(updated);
   return updated;
+}
+
+function notifyNoticesChanged(): void {
+  window.dispatchEvent(new Event(NOTICES_CHANGED_EVENT));
+}
+
+export function getNotices(): Notice[] {
+  return sortNotices(readStorage().notices ?? []);
+}
+
+export function saveNotices(notices: Notice[]): Notice[] {
+  const data = readStorage();
+  data.notices = sortNotices(notices);
+  writeStorage(data);
+  notifyNoticesChanged();
+  return data.notices;
+}
+
+export function createNotice(input: {
+  title: string;
+  body: string;
+  isImportant: boolean;
+}): Notice[] {
+  const now = new Date().toISOString();
+  const notice: Notice = {
+    id: createNoticeId(),
+    title: input.title.trim(),
+    body: input.body.trim(),
+    isImportant: input.isImportant,
+    createdAt: now,
+    updatedAt: now,
+  };
+  return saveNotices([...readStorage().notices, notice]);
+}
+
+export function updateNotice(
+  id: string,
+  patch: Partial<Pick<Notice, 'title' | 'body' | 'isImportant'>>
+): Notice[] {
+  const now = new Date().toISOString();
+  return saveNotices(
+    readStorage().notices.map((notice) =>
+      notice.id === id
+        ? {
+            ...notice,
+            ...patch,
+            title: patch.title !== undefined ? patch.title.trim() : notice.title,
+            body: patch.body !== undefined ? patch.body.trim() : notice.body,
+            updatedAt: now,
+          }
+        : notice
+    )
+  );
+}
+
+export function deleteNotice(id: string): Notice[] {
+  return saveNotices(readStorage().notices.filter((notice) => notice.id !== id));
 }
 
 export function saveShiftTypes(types: ShiftType[]): ShiftType[] {

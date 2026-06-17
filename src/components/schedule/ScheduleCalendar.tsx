@@ -1,10 +1,5 @@
 import { useMemo } from 'react';
-import {
-  startOfMonth,
-  endOfMonth,
-  eachDayOfInterval,
-  isToday,
-} from 'date-fns';
+import { isToday } from 'date-fns';
 import { CalendarLegend } from './CalendarLegend';
 import { ShiftCard } from './ShiftCard';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
@@ -17,20 +12,20 @@ import {
   isSaturday,
   KOREAN_WEEKDAYS,
 } from '@/lib/koreanHolidays';
+import { scheduleDateKey, shiftMatchesDay } from '@/lib/scheduleViewRange';
 
 interface ScheduleCalendarProps {
-  year: number;
-  month: number;
+  days: Date[];
   shifts: ScheduleShift[];
   draggingId: string | null;
   dropTarget: string | null;
   onDragStart: (shiftId: string) => void;
   onDragEnd: () => void;
   onDragOver: (cellKey: string) => void;
-  onDrop: (shiftId: string, day: number, rowId: ShiftRowId) => void;
+  onDrop: (shiftId: string, targetDate: Date, rowId: ShiftRowId) => void;
   onResize: (shiftId: string, deltaHours: number) => void;
   onEditShift: (shift: ScheduleShift) => void;
-  onCreateInCell?: (day: number, rowId: ShiftRowId) => void;
+  onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
   readOnly?: boolean;
 }
 
@@ -88,8 +83,7 @@ function cellBackgroundClasses(day: Date, today: boolean): string {
 }
 
 export function ScheduleCalendar({
-  year,
-  month,
+  days,
   shifts,
   draggingId,
   dropTarget,
@@ -108,25 +102,29 @@ export function ScheduleCalendar({
   const rowLabelWidth = isMobile ? 52 : ROW_LABEL_WIDTH;
   const headerHeight = isMobile ? 58 : HEADER_HEIGHT;
 
-  const { days, shiftsByDayAndRow } = useMemo(() => {
-    const start = startOfMonth(new Date(year, month - 1));
-    const end = endOfMonth(start);
-    const allDays = eachDayOfInterval({ start, end });
-
+  const shiftsByDayAndRow = useMemo(() => {
     const map = new Map<string, ScheduleShift[]>();
-    for (const s of shifts) {
-      if (s.year === year && s.month === month) {
-        const key = `${s.day}-${s.rowId}`;
+    for (const shift of shifts) {
+      for (const day of days) {
+        if (!shiftMatchesDay(shift, day)) continue;
+        const key = `${scheduleDateKey(shift.year, shift.month, shift.day)}-${shift.rowId}`;
         const existing = map.get(key) ?? [];
-        existing.push(s);
+        existing.push(shift);
         map.set(key, existing);
       }
     }
+    return map;
+  }, [days, shifts]);
 
-    return { days: allDays, shiftsByDayAndRow: map };
-  }, [year, month, shifts]);
+  const gridWidth = Math.max(days.length, 1) * dayCellWidth;
 
-  const gridWidth = days.length * dayCellWidth;
+  if (days.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center text-sm text-stone-400">
+        표시할 날짜가 없습니다.
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 overflow-hidden p-2 md:p-4 min-h-0 flex flex-col gap-2">
@@ -166,17 +164,22 @@ export function ScheduleCalendar({
             >
               {days.map((day) => {
                 const dayNum = day.getDate();
+                const month = day.getMonth() + 1;
                 const dow = day.getDay();
                 const today = isToday(day);
                 const holidayName = getHolidayName(day);
+                const dateKey = scheduleDateKey(day.getFullYear(), month, dayNum);
 
                 return (
                   <div
-                    key={dayNum}
+                    key={dateKey}
                     style={{ width: dayCellWidth }}
                     title={holidayName ?? undefined}
                     className={`shrink-0 flex flex-col items-center justify-center gap-0.5 text-xs border-r border-stone-200/80 ${dayHeaderClasses(day, today)}`}
                   >
+                    {days.length > 1 && days.length < 28 && (
+                      <span className="text-[9px] text-stone-400">{month}월</span>
+                    )}
                     <span className={dayNumberClasses(day, today)}>{dayNum}</span>
                     <span className={`text-[10px] md:text-[11px] ${weekdayClasses(day, today)}`}>
                       {KOREAN_WEEKDAYS[dow]}
@@ -199,7 +202,10 @@ export function ScheduleCalendar({
               >
                 {days.map((day) => {
                   const dayNum = day.getDate();
-                  const cellKey = `${dayNum}-${row.id}`;
+                  const month = day.getMonth() + 1;
+                  const year = day.getFullYear();
+                  const dateKey = scheduleDateKey(year, month, dayNum);
+                  const cellKey = `${dateKey}-${row.id}`;
                   const cellShifts = shiftsByDayAndRow.get(cellKey) ?? [];
                   const isDropTarget = dropTarget === cellKey && draggingId !== null;
                   const today = isToday(day);
@@ -217,7 +223,7 @@ export function ScheduleCalendar({
                       onDrop={(e) => {
                         if (readOnly) return;
                         const shiftId = e.dataTransfer.getData('text/shift-id');
-                        if (shiftId) onDrop(shiftId, dayNum, row.id);
+                        if (shiftId) onDrop(shiftId, day, row.id);
                       }}
                       className={`shrink-0 border-r border-stone-100 p-1.5 md:p-2 space-y-1.5 md:space-y-2 transition-all duration-200 group/cell ${cellBackgroundClasses(day, today)} ${
                         today ? 'ring-1 ring-inset ring-stone-700/20' : ''
@@ -238,7 +244,7 @@ export function ScheduleCalendar({
                       {cellShifts.length === 0 && onCreateInCell && !readOnly && (
                         <button
                           type="button"
-                          onClick={() => onCreateInCell(dayNum, row.id)}
+                          onClick={() => onCreateInCell(day, row.id)}
                           className="w-full h-full min-h-[48px] md:min-h-[52px] rounded-xl border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
                         >
                           + 추가

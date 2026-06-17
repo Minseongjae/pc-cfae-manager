@@ -121,6 +121,7 @@ export function normalizeAppStorage(raw: Partial<AppStorage>, fallback: AppStora
       ? raw.purchaseOrders
       : fallback.purchaseOrders,
     salesRecords: Array.isArray(raw.salesRecords) ? raw.salesRecords : fallback.salesRecords,
+    notices: Array.isArray(raw.notices) ? raw.notices : (fallback.notices ?? []),
     shiftTypes: appSettings.shiftTypes,
     schoolSchedules: appSettings.schedule.schoolSchedules,
     appSettings,

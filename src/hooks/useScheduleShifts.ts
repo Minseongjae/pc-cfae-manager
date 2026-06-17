@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 import {
   getScheduleShifts,
@@ -13,28 +13,37 @@ import {
 import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
 import { DATA_SYNC_CHANGED_EVENT, SCHEDULES_CHANGED_EVENT } from '@/lib/dataStore';
 import type { ShiftModalMode } from '@/components/schedule/ShiftModal';
+import { dateToScheduleParts, isDateWithinScheduleRange, shiftMatchesDay } from '@/lib/scheduleViewRange';
 import { isScheduleDateAllowed } from '@/lib/scheduleDateRange';
 
-function filterMonth(shifts: ScheduleShift[], year: number, month: number) {
-  return shifts.filter((s) => s.year === year && s.month === month);
+function filterVisibleShifts(shifts: ScheduleShift[], visibleDays: Date[]): ScheduleShift[] {
+  if (visibleDays.length === 0) return [];
+  return shifts.filter((shift) => visibleDays.some((day) => shiftMatchesDay(shift, day)));
 }
 
-export function useScheduleShifts(year: number, month: number) {
+export function useScheduleShifts(visibleDays: Date[]) {
+  const daySignature = useMemo(
+    () => visibleDays.map((day) => day.toISOString().slice(0, 10)).join('|'),
+    [visibleDays]
+  );
+
   const [shifts, setShifts] = useState<ScheduleShift[]>(() =>
-    getScheduleShifts(year, month)
+    filterVisibleShifts(getScheduleShifts(), visibleDays)
   );
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [modalMode, setModalMode] = useState<ShiftModalMode | null>(null);
   const [editingShift, setEditingShift] = useState<ScheduleShift | null>(null);
   const [createDefaults, setCreateDefaults] = useState<{
+    year: number;
+    month: number;
     day: number;
     rowId: ShiftRowId;
   } | null>(null);
 
   const refresh = useCallback(() => {
-    setShifts(getScheduleShifts(year, month));
-  }, [year, month]);
+    setShifts(filterVisibleShifts(getScheduleShifts(), visibleDays));
+  }, [daySignature, visibleDays]);
 
   useEffect(() => {
     refresh();
@@ -66,37 +75,37 @@ export function useScheduleShifts(year: number, month: number) {
   }, []);
 
   const handleDrop = useCallback(
-    (shiftId: string, day: number, rowId: ShiftRowId) => {
-      if (!isScheduleDateAllowed(year, month, day)) return;
+    (shiftId: string, targetDate: Date, rowId: ShiftRowId) => {
+      if (!isDateWithinScheduleRange(targetDate)) return;
+      const { year, month, day } = dateToScheduleParts(targetDate);
       const updated = moveShiftInStorage(shiftId, day, rowId, year, month);
-      setShifts(filterMonth(updated, year, month));
+      setShifts(filterVisibleShifts(updated, visibleDays));
       setDraggingId(null);
       setDropTarget(null);
     },
-    [year, month]
+    [visibleDays]
   );
 
   const handleResize = useCallback(
     (shiftId: string, deltaHours: number) => {
       const updated = resizeShiftInStorage(shiftId, deltaHours);
-      setShifts(filterMonth(updated, year, month));
+      setShifts(filterVisibleShifts(updated, visibleDays));
     },
-    [year, month]
+    [visibleDays]
   );
 
-  const openCreate = useCallback(
-    (defaults?: { day: number; rowId: ShiftRowId }) => {
-      setModalMode('create');
-      setEditingShift(null);
-      setCreateDefaults(
-        defaults ?? {
-          day: new Date().getDate(),
-          rowId: getShiftTypes()[0]?.id ?? 'morning',
-        }
-      );
-    },
-    []
-  );
+  const openCreate = useCallback((defaults?: { targetDate: Date; rowId: ShiftRowId }) => {
+    const targetDate = defaults?.targetDate ?? new Date();
+    const parts = dateToScheduleParts(targetDate);
+    setModalMode('create');
+    setEditingShift(null);
+    setCreateDefaults({
+      year: parts.year,
+      month: parts.month,
+      day: parts.day,
+      rowId: defaults?.rowId ?? getShiftTypes()[0]?.id ?? 'morning',
+    });
+  }, []);
 
   const openEdit = useCallback((shift: ScheduleShift) => {
     setModalMode('edit');
@@ -115,22 +124,22 @@ export function useScheduleShifts(year: number, month: number) {
       if (!isScheduleDateAllowed(input.year, input.month, input.day)) return;
       if (modalMode === 'create') {
         const updated = createShiftInStorage(input);
-        setShifts(filterMonth(updated, year, month));
+        setShifts(filterVisibleShifts(updated, visibleDays));
       } else if (modalMode === 'edit' && editingShift) {
         const updated = updateShiftInStorage(editingShift.id, input);
-        setShifts(filterMonth(updated, year, month));
+        setShifts(filterVisibleShifts(updated, visibleDays));
       }
       closeModal();
     },
-    [modalMode, editingShift, year, month, closeModal]
+    [modalMode, editingShift, visibleDays, closeModal]
   );
 
   const handleDelete = useCallback(() => {
     if (!editingShift) return;
     const updated = deleteShiftInStorage(editingShift.id);
-    setShifts(filterMonth(updated, year, month));
+    setShifts(filterVisibleShifts(updated, visibleDays));
     closeModal();
-  }, [editingShift, year, month, closeModal]);
+  }, [editingShift, visibleDays, closeModal]);
 
   return {
     shifts,

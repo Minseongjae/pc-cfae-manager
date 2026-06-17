@@ -1,23 +1,42 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { ScheduleHeader, type ViewMode } from '@/components/schedule/ScheduleHeader';
 import { ScheduleCalendar } from '@/components/schedule/ScheduleCalendar';
 import { ShiftModal } from '@/components/schedule/ShiftModal';
 import { ScheduleBatchDeleteDialog } from '@/components/schedule/ScheduleBatchDeleteDialog';
 import { useAdminLockContext } from '@/contexts/AdminLockContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useScheduleShifts } from '@/hooks/useScheduleShifts';
 import {
-  canGoNextScheduleMonth,
-  canGoPrevScheduleMonth,
-} from '@/lib/scheduleDateRange';
+  canNavigateScheduleNext,
+  canNavigateSchedulePrev,
+  dateToScheduleParts,
+  getSchedulePeriodLabel,
+  getVisibleDays,
+  navigateScheduleAnchor,
+} from '@/lib/scheduleViewRange';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 
 export function SchedulePage() {
   const { isAdmin, requireAdmin } = useAdminLockContext();
-  const now = new Date();
-  const [year, setYear] = useState(now.getFullYear());
-  const [month, setMonth] = useState(now.getMonth() + 1);
-  const [viewMode, setViewMode] = useState<ViewMode>('monthly');
+  const { settings } = useSettings();
+  const [anchorDate, setAnchorDate] = useState(() => new Date());
+  const [viewMode, setViewMode] = useState<ViewMode>(
+    settings.schedule.defaultView ?? 'monthly'
+  );
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
+
+  const weekStartsOn = settings.schedule.weekStartsOn ?? 1;
+  const visibleDays = useMemo(
+    () => getVisibleDays(anchorDate, viewMode, weekStartsOn),
+    [anchorDate, viewMode, weekStartsOn]
+  );
+
+  const periodLabel = useMemo(
+    () => getSchedulePeriodLabel(anchorDate, viewMode, weekStartsOn),
+    [anchorDate, viewMode, weekStartsOn]
+  );
+
+  const { year, month } = dateToScheduleParts(anchorDate);
 
   const {
     shifts,
@@ -37,35 +56,21 @@ export function SchedulePage() {
     handleSave,
     handleDelete,
     refresh,
-  } = useScheduleShifts(year, month);
+  } = useScheduleShifts(visibleDays);
 
-  const goToPrevMonth = () => {
-    if (!canGoPrevScheduleMonth(year, month)) return;
-    if (month === 1) {
-      setYear((y) => y - 1);
-      setMonth(12);
-    } else {
-      setMonth((m) => m - 1);
-    }
+  const goToPrevPeriod = () => {
+    setAnchorDate((current) => navigateScheduleAnchor(current, viewMode, -1));
   };
 
-  const goToNextMonth = () => {
-    if (!canGoNextScheduleMonth(year, month)) return;
-    if (month === 12) {
-      setYear((y) => y + 1);
-      setMonth(1);
-    } else {
-      setMonth((m) => m + 1);
-    }
+  const goToNextPeriod = () => {
+    setAnchorDate((current) => navigateScheduleAnchor(current, viewMode, 1));
   };
 
   const goToToday = () => {
-    const today = new Date();
-    setYear(today.getFullYear());
-    setMonth(today.getMonth() + 1);
+    setAnchorDate(new Date());
   };
 
-  const guardedCreate = (defaults?: { day: number; rowId: ShiftRowId }) => {
+  const guardedCreate = (defaults?: { targetDate: Date; rowId: ShiftRowId }) => {
     requireAdmin(() => openCreate(defaults));
   };
 
@@ -73,9 +78,9 @@ export function SchedulePage() {
     requireAdmin(() => openEdit(shift));
   };
 
-  const guardedDrop = (shiftId: string, day: number, rowId: ShiftRowId) => {
+  const guardedDrop = (shiftId: string, targetDate: Date, rowId: ShiftRowId) => {
     if (!isAdmin) return;
-    handleDrop(shiftId, day, rowId);
+    handleDrop(shiftId, targetDate, rowId);
   };
 
   const guardedResize = (shiftId: string, deltaHours: number) => {
@@ -94,56 +99,40 @@ export function SchedulePage() {
       )}
 
       <ScheduleHeader
-        year={year}
-        month={month}
+        periodLabel={periodLabel}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        onPrevMonth={goToPrevMonth}
-        onNextMonth={goToNextMonth}
-        canGoPrev={canGoPrevScheduleMonth(year, month)}
-        canGoNext={canGoNextScheduleMonth(year, month)}
+        onPrevPeriod={goToPrevPeriod}
+        onNextPeriod={goToNextPeriod}
+        canGoPrev={canNavigateSchedulePrev(anchorDate, viewMode)}
+        canGoNext={canNavigateScheduleNext(anchorDate, viewMode)}
         onToday={goToToday}
         onCreateShift={() => guardedCreate()}
         onBatchDelete={() => requireAdmin(() => setBatchDeleteOpen(true))}
         readOnly={!isAdmin}
       />
 
-      {viewMode === 'monthly' && (
-        <ScheduleCalendar
-          year={year}
-          month={month}
-          shifts={shifts}
-          draggingId={draggingId}
-          dropTarget={dropTarget}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragOver={handleDragOver}
-          onDrop={guardedDrop}
-          onResize={guardedResize}
-          onEditShift={guardedEdit}
-          onCreateInCell={(day, rowId) => guardedCreate({ day, rowId })}
-          readOnly={!isAdmin}
-        />
-      )}
-
-      {viewMode === 'weekly' && (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-stone-400 text-sm font-light">주간 보기 — 준비 중</p>
-        </div>
-      )}
-
-      {viewMode === 'daily' && (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-stone-400 text-sm font-light">일간 보기 — 준비 중</p>
-        </div>
-      )}
+      <ScheduleCalendar
+        days={visibleDays}
+        shifts={shifts}
+        draggingId={draggingId}
+        dropTarget={dropTarget}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDrop={guardedDrop}
+        onResize={guardedResize}
+        onEditShift={guardedEdit}
+        onCreateInCell={(targetDate, rowId) => guardedCreate({ targetDate, rowId })}
+        readOnly={!isAdmin}
+      />
 
       {modalMode && isAdmin && (
         <ShiftModal
           mode={modalMode}
           shift={editingShift}
-          year={year}
-          month={month}
+          year={createDefaults?.year ?? editingShift?.year ?? year}
+          month={createDefaults?.month ?? editingShift?.month ?? month}
           defaultDay={createDefaults?.day}
           defaultRowId={createDefaults?.rowId}
           onSave={handleSave}

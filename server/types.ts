@@ -62,6 +62,15 @@ export interface SchoolSchedule {
   schedule: string;
 }
 
+export interface NoticeRow {
+  id: string;
+  title: string;
+  body: string;
+  isImportant: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface InventoryItem {
   id: string;
   name: string;
@@ -111,5 +120,6 @@ export interface AppDataPayload {
   inventoryItems: InventoryItem[];
   purchaseOrders: PurchaseOrder[];
   salesRecords: SalesRecord[];
+  notices: NoticeRow[];
   syncToken: string;
 }

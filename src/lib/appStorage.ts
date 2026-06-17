@@ -3,6 +3,7 @@ import type { EmployeePosition, EmployeeStatus } from '@/lib/employees';
 import type { ActualWorkRecord } from '@/lib/actualWork';
 import type { PayrollAdjustmentRecord } from '@/lib/payrollAdjustments';
 import type { AppSettings } from '@/lib/appSettings';
+import type { Notice } from '@/lib/notices';
 import type { ShiftType } from '@/types';
 
 export interface EmployeeRow {
@@ -63,6 +64,7 @@ export interface AppStorage {
   employees: EmployeeRow[];
   shiftTypes: ShiftType[];
   scheduleShifts: ScheduleShift[];
+  notices: Notice[];
   schoolSchedules: SchoolSchedule[];
   actualWorkRecords: ActualWorkRecord[];
   payrollAdjustmentRecords: PayrollAdjustmentRecord[];

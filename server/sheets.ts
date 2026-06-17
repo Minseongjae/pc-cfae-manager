@@ -203,6 +203,7 @@ export async function initializeSheets(): Promise<void> {
   await ensureSheetWithHeaders(sheets, SHEET_NAMES.settings, HEADERS.settings, [
     ['school_schedules', '[]', new Date().toISOString()],
     ['app_settings', '{}', new Date().toISOString()],
+    ['notices', '[]', new Date().toISOString()],
   ]);
   await ensureSheetWithHeaders(sheets, SHEET_NAMES.inventory, HEADERS.inventory);
   await ensureSheetWithHeaders(sheets, SHEET_NAMES.purchaseOrders, HEADERS.purchaseOrders);
@@ -257,7 +258,7 @@ export async function readAllData(options?: {
 
   const schoolSchedulesSetting = settingsRows.find((row) => row[0] === 'school_schedules');
   const legacySchoolSchedules = parseSchoolSchedules(schoolSchedulesSetting?.[1] ?? '[]');
-  const { schoolSchedules, appSettings } = parseSettingsRows(
+  const { schoolSchedules, appSettings, notices } = parseSettingsRows(
     settingsRows,
     {
       ...EMPTY_APP_SETTINGS,
@@ -275,6 +276,7 @@ export async function readAllData(options?: {
     inventoryItems,
     purchaseOrders,
     salesRecords,
+    notices: Array.isArray(notices) ? notices : [],
   };
 
   const payload = {
@@ -333,6 +335,7 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
     inventoryItems,
     purchaseOrders,
     salesRecords,
+    notices: payload.notices ?? [],
   });
 
   await Promise.all([
@@ -367,6 +370,7 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
       buildSettingsRows({
         schoolSchedules: payload.schoolSchedules,
         appSettings: payload.appSettings,
+        notices: payload.notices ?? [],
         syncToken,
       })
     ),

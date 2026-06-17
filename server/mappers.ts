@@ -190,6 +190,7 @@ export function computeSyncToken(payload: Omit<AppDataPayload, 'syncToken'>): st
     inventoryItems: payload.inventoryItems,
     purchaseOrders: payload.purchaseOrders,
     salesRecords: payload.salesRecords,
+    notices: payload.notices,
   });
 
   let hash = 0;
@@ -197,7 +198,7 @@ export function computeSyncToken(payload: Omit<AppDataPayload, 'syncToken'>): st
     hash = (hash * 31 + blob.charCodeAt(i)) | 0;
   }
 
-  return `${payload.employees.length}:${payload.scheduleShifts.length}:${payload.actualWorkRecords.length}:${payload.payrollAdjustmentRecords.length}:${payload.inventoryItems.length}:${payload.purchaseOrders.length}:${payload.salesRecords.length}:${hash}`;
+  return `${payload.employees.length}:${payload.scheduleShifts.length}:${payload.actualWorkRecords.length}:${payload.payrollAdjustmentRecords.length}:${payload.inventoryItems.length}:${payload.purchaseOrders.length}:${payload.salesRecords.length}:${payload.notices?.length ?? 0}:${hash}`;
 }
 
 export function parseJsonSetting<T>(value: string, fallback: T): T {
@@ -212,12 +213,14 @@ export function parseJsonSetting<T>(value: string, fallback: T): T {
 export function buildSettingsRows(payload: {
   schoolSchedules: SchoolSchedule[];
   appSettings: AppSettingsPayload;
+  notices: import('./types.js').NoticeRow[];
   syncToken: string;
 }): string[][] {
   const now = new Date().toISOString();
   return [
     ['school_schedules', JSON.stringify(payload.schoolSchedules), now],
     ['app_settings', JSON.stringify(payload.appSettings), now],
+    ['notices', JSON.stringify(payload.notices ?? []), now],
     ['sync_token', payload.syncToken, now],
   ];
 }
@@ -225,12 +228,18 @@ export function buildSettingsRows(payload: {
 export function parseSettingsRows(
   rows: string[][],
   fallbackAppSettings: AppSettingsPayload
-): { schoolSchedules: SchoolSchedule[]; appSettings: AppSettingsPayload } {
+): {
+  schoolSchedules: SchoolSchedule[];
+  appSettings: AppSettingsPayload;
+  notices: import('./types.js').NoticeRow[];
+} {
   const schoolRow = rows.find((row) => row[0] === 'school_schedules');
   const appRow = rows.find((row) => row[0] === 'app_settings');
+  const noticesRow = rows.find((row) => row[0] === 'notices');
 
   const schoolSchedules = parseSchoolSchedules(schoolRow?.[1] ?? '[]');
   const appSettings = parseJsonSetting(appRow?.[1] ?? '', fallbackAppSettings);
+  const notices = parseJsonSetting<import('./types.js').NoticeRow[]>(noticesRow?.[1] ?? '[]', []);
 
   if (!appRow?.[1] && schoolSchedules.length > 0) {
     appSettings.schedule = {
@@ -239,7 +248,7 @@ export function parseSettingsRows(
     };
   }
 
-  return { schoolSchedules, appSettings };
+  return { schoolSchedules, appSettings, notices: Array.isArray(notices) ? notices : [] };
 }
 
 export function parseSchoolSchedules(value: string): SchoolSchedule[] {

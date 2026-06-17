@@ -3,12 +3,11 @@ import { ChevronLeft, ChevronRight, Plus, Trash2 } from 'lucide-react';
 export type ViewMode = 'monthly' | 'weekly' | 'daily';
 
 interface ScheduleHeaderProps {
-  year: number;
-  month: number;
+  periodLabel: string;
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
-  onPrevMonth: () => void;
-  onNextMonth: () => void;
+  onPrevPeriod: () => void;
+  onNextPeriod: () => void;
   canGoPrev?: boolean;
   canGoNext?: boolean;
   onToday: () => void;
@@ -18,12 +17,11 @@ interface ScheduleHeaderProps {
 }
 
 export function ScheduleHeader({
-  year,
-  month,
+  periodLabel,
   viewMode,
   onViewModeChange,
-  onPrevMonth,
-  onNextMonth,
+  onPrevPeriod,
+  onNextPeriod,
   canGoPrev = true,
   canGoNext = true,
   onToday,
@@ -37,27 +35,25 @@ export function ScheduleHeader({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="hidden md:block">
             <h1 className="heading-display text-lg md:text-xl">근무 스케줄</h1>
-            <p className="text-sm text-stone-500 mt-0.5 font-light">
-              {year}년 {month}월
-            </p>
+            <p className="text-sm text-stone-500 mt-0.5 font-light">{periodLabel}</p>
           </div>
-          <p className="md:hidden text-sm font-medium text-stone-600">
-            {year}년 {month}월
-          </p>
+          <p className="md:hidden text-sm font-medium text-stone-600">{periodLabel}</p>
 
           <div className="flex items-center gap-1 bg-stone-100 rounded-xl p-1 self-start">
             <button
-              onClick={onPrevMonth}
+              type="button"
+              onClick={onPrevPeriod}
               disabled={!canGoPrev}
               className="btn-ghost touch-target disabled:opacity-30 disabled:pointer-events-none"
             >
               <ChevronLeft size={18} />
             </button>
-            <button onClick={onToday} className="btn-secondary text-xs md:text-sm touch-target">
+            <button type="button" onClick={onToday} className="btn-secondary text-xs md:text-sm touch-target">
               오늘
             </button>
             <button
-              onClick={onNextMonth}
+              type="button"
+              onClick={onNextPeriod}
               disabled={!canGoNext}
               className="btn-ghost touch-target disabled:opacity-30 disabled:pointer-events-none"
             >
@@ -71,6 +67,7 @@ export function ScheduleHeader({
             {(['monthly', 'weekly', 'daily'] as ViewMode[]).map((mode) => (
               <button
                 key={mode}
+                type="button"
                 onClick={() => onViewModeChange(mode)}
                 className={`segment-item touch-segment shrink-0 ${
                   viewMode === mode ? 'segment-item-active' : ''
@@ -82,22 +79,26 @@ export function ScheduleHeader({
           </div>
 
           {!readOnly && (
-          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            {onBatchDelete && (
+            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+              {onBatchDelete && (
+                <button
+                  type="button"
+                  className="btn-secondary w-full sm:w-auto touch-target justify-center text-rose-700 border-rose-200 hover:bg-rose-50"
+                  onClick={onBatchDelete}
+                >
+                  <Trash2 size={16} strokeWidth={2} />
+                  일괄 삭제
+                </button>
+              )}
               <button
                 type="button"
-                className="btn-secondary w-full sm:w-auto touch-target justify-center text-rose-700 border-rose-200 hover:bg-rose-50"
-                onClick={onBatchDelete}
+                className="btn-primary w-full sm:w-auto touch-target justify-center"
+                onClick={onCreateShift}
               >
-                <Trash2 size={16} strokeWidth={2} />
-                일괄 삭제
+                <Plus size={16} strokeWidth={2} />
+                근무 추가
               </button>
-            )}
-            <button className="btn-primary w-full sm:w-auto touch-target justify-center" onClick={onCreateShift}>
-              <Plus size={16} strokeWidth={2} />
-              근무 추가
-            </button>
-          </div>
+            </div>
           )}
         </div>
       </div>
