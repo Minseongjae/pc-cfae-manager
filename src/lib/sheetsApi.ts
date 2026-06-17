@@ -81,6 +81,11 @@ export interface RemoteDataPayload {
 
 const API_BASE = import.meta.env.VITE_API_URL ?? '';
 const API_KEY = import.meta.env.VITE_API_KEY ?? '';
+const HEALTH_CACHE_MS = 5 * 60_000;
+
+let healthCache: { ok: boolean; checkedAt: number } | null = null;
+let remoteDataInFlight: Promise<RemoteDataPayload> | null = null;
+let remoteTokenInFlight: Promise<string> | null = null;
 
 function headers(): HeadersInit {
   const result: HeadersInit = { 'Content-Type': 'application/json' };
@@ -97,23 +102,62 @@ async function parseError(response: Response): Promise<string> {
   }
 }
 
-export async function checkApiHealth(): Promise<boolean> {
+export async function checkApiHealth(force = false): Promise<boolean> {
+  if (!force && healthCache && Date.now() - healthCache.checkedAt < HEALTH_CACHE_MS) {
+    return healthCache.ok;
+  }
+
   try {
     const response = await fetch(`${API_BASE}/api/health`);
-    if (!response.ok) return false;
+    if (!response.ok) {
+      healthCache = { ok: false, checkedAt: Date.now() };
+      return false;
+    }
     const body = (await response.json()) as { ok?: boolean; sheetsConfigured?: boolean };
-    return body.ok === true && body.sheetsConfigured === true;
+    const ok = body.ok === true && body.sheetsConfigured === true;
+    healthCache = { ok, checkedAt: Date.now() };
+    return ok;
   } catch {
+    healthCache = { ok: false, checkedAt: Date.now() };
     return false;
   }
 }
 
+export function invalidateHealthCache(): void {
+  healthCache = null;
+}
+
+export async function fetchRemoteSyncToken(): Promise<string> {
+  if (remoteTokenInFlight) return remoteTokenInFlight;
+
+  remoteTokenInFlight = (async () => {
+    const response = await fetch(`${API_BASE}/api/data?mode=token`, { headers: headers() });
+    if (!response.ok) {
+      throw new Error(await parseError(response));
+    }
+    const body = (await response.json()) as { syncToken?: string };
+    return body.syncToken ?? '';
+  })().finally(() => {
+    remoteTokenInFlight = null;
+  });
+
+  return remoteTokenInFlight;
+}
+
 export async function fetchRemoteData(): Promise<RemoteDataPayload> {
-  const response = await fetch(`${API_BASE}/api/data`, { headers: headers() });
-  if (!response.ok) {
-    throw new Error(await parseError(response));
-  }
-  return response.json() as Promise<RemoteDataPayload>;
+  if (remoteDataInFlight) return remoteDataInFlight;
+
+  remoteDataInFlight = (async () => {
+    const response = await fetch(`${API_BASE}/api/data`, { headers: headers() });
+    if (!response.ok) {
+      throw new Error(await parseError(response));
+    }
+    return response.json() as Promise<RemoteDataPayload>;
+  })().finally(() => {
+    remoteDataInFlight = null;
+  });
+
+  return remoteDataInFlight;
 }
 
 export async function pushRemoteData(
@@ -125,6 +169,7 @@ export async function pushRemoteData(
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
+    invalidateHealthCache();
     throw new Error(await parseError(response));
   }
   const body = (await response.json()) as { syncToken?: string };

@@ -212,11 +212,13 @@ export function parseJsonSetting<T>(value: string, fallback: T): T {
 export function buildSettingsRows(payload: {
   schoolSchedules: SchoolSchedule[];
   appSettings: AppSettingsPayload;
+  syncToken: string;
 }): string[][] {
   const now = new Date().toISOString();
   return [
     ['school_schedules', JSON.stringify(payload.schoolSchedules), now],
     ['app_settings', JSON.stringify(payload.appSettings), now],
+    ['sync_token', payload.syncToken, now],
   ];
 }
 

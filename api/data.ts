@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { readAllData, writeAllData } from '../server/sheets.js';
+import { readAllData, readSyncToken, writeAllData } from '../server/sheets.js';
 import type { AppDataPayload } from '../server/types.js';
 import { ensureSheetsReady, setCors } from './_shared/init.js';
 
@@ -19,6 +19,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     await ensureSheetsReady();
 
     if (req.method === 'GET') {
+      const mode = typeof req.query.mode === 'string' ? req.query.mode : '';
+      if (mode === 'token') {
+        const syncToken = await readSyncToken();
+        res.status(200).json({ syncToken });
+        return;
+      }
+
       const data = await readAllData();
       res.status(200).json(data);
       return;

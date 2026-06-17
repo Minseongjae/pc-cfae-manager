@@ -52,9 +52,9 @@ export function SyncStatusBadge() {
           </div>
           <button
             type="button"
-            onClick={() => forceSync().catch(console.error)}
+            onClick={() => forceSync({ pull: true }).catch(console.error)}
             className="btn-ghost p-1.5 shrink-0"
-            title="지금 동기화"
+            title="저장 후 원격에서 최신 데이터 가져오기"
           >
             <RefreshCw size={14} />
           </button>

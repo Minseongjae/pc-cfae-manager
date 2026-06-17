@@ -670,7 +670,10 @@ function CloudSyncSection() {
   const { isOnline, lastSyncAt, error, forceSync } = useDataSync();
 
   return (
-    <SectionCard title="Google Sheets 동기화" description="집·매장·휴대폰에서 동일한 데이터">
+    <SectionCard
+      title="Google Sheets 동기화"
+      description="변경 시 자동 저장 · 90초마다 변경 여부만 확인(할당량 절약)"
+    >
       <dl className="grid grid-cols-[120px_1fr] gap-3 text-sm">
         <dt className="text-stone-500">상태</dt>
         <dd className={isOnline ? 'text-emerald-700' : 'text-rose-600'}>
@@ -688,7 +691,7 @@ function CloudSyncSection() {
           {error}
         </p>
       )}
-      <button type="button" className="btn-secondary text-sm" onClick={() => forceSync().catch(console.error)}>
+      <button type="button" className="btn-secondary text-sm" onClick={() => forceSync({ pull: true }).catch(console.error)}>
         지금 동기화
       </button>
     </SectionCard>

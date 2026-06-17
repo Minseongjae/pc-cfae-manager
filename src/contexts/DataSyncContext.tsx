@@ -16,7 +16,7 @@ import type { SyncState } from '@/lib/dataStore';
 
 interface DataSyncContextValue extends SyncState {
   refresh: () => void;
-  forceSync: () => Promise<void>;
+  forceSync: (options?: { pull?: boolean }) => Promise<void>;
 }
 
 const DataSyncContext = createContext<DataSyncContextValue | null>(null);
@@ -34,8 +34,8 @@ export function DataSyncProvider({ children }: { children: ReactNode }) {
     return () => window.removeEventListener(DATA_SYNC_CHANGED_EVENT, handler);
   }, [refresh]);
 
-  const forceSync = useCallback(async () => {
-    await forceSyncNow();
+  const forceSync = useCallback(async (options?: { pull?: boolean }) => {
+    await forceSyncNow(options);
     refresh();
   }, [refresh]);
 

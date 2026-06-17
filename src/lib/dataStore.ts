@@ -2,6 +2,7 @@ import type { AppStorage } from '@/lib/appStorage';
 import {
   checkApiHealth,
   fetchRemoteData,
+  fetchRemoteSyncToken,
   fromRemotePayload,
   pushRemoteData,
   toRemotePayload,
@@ -29,7 +30,8 @@ export const LOCAL_BACKUP_KEY = '1pc-cafe-manager-data';
 const LOCAL_BACKUP_META_KEY = '1pc-cafe-manager-data-meta';
 
 const PUSH_DEBOUNCE_MS = 500;
-const POLL_INTERVAL_MS = 8_000;
+const TOKEN_POLL_INTERVAL_MS = 90_000;
+const MIN_FULL_PULL_INTERVAL_MS = 60_000;
 const MAX_PUSH_RETRIES = 6;
 const LOCAL_EDIT_GRACE_MS = 15_000;
 const STORAGE_VERSION = 6;
@@ -67,6 +69,8 @@ let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pushInFlight = false;
 let hasPendingPush = false;
 let lastLocalWriteAt = 0;
+let lastFullPullAt = 0;
+let lastTokenCheckAt = 0;
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
@@ -308,7 +312,7 @@ function scheduleRetry(attempt: number): void {
 async function pushNow(attempt = 0): Promise<void> {
   if (!cache || pushInFlight) return;
 
-  const online = await checkApiHealth();
+  const online = attempt > 0 ? await checkApiHealth(true) : syncState.isOnline || (await checkApiHealth());
   if (!online) {
     setSyncState({
       status: 'error',
@@ -371,8 +375,35 @@ export async function flushPush(): Promise<void> {
   await pushNow();
 }
 
-async function pullRemote(): Promise<void> {
+async function pullRemoteFull(): Promise<void> {
+  if (!cache) return;
+
+  const remote = await fetchRemoteData();
+  lastFullPullAt = Date.now();
+
+  if (remote.syncToken === syncState.syncToken) {
+    setSyncState({ isOnline: true, error: null });
+    return;
+  }
+
+  const previous = cache;
+  const next = enrichAttendance(fromRemotePayload(remote, cache));
+  cache = next;
+  writeLocalBackup(cache);
+  setSyncState({
+    status: 'idle',
+    syncToken: remote.syncToken,
+    lastSyncAt: new Date().toISOString(),
+    isOnline: true,
+    error: null,
+    hasLocalBackup: true,
+  });
+  dispatchDataEvents(previous, next);
+}
+
+async function pullRemoteToken(): Promise<void> {
   if (pushInFlight || pushTimer || hasPendingPush || !cache) return;
+  if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
 
   const recentlyEdited = Date.now() - lastLocalWriteAt < LOCAL_EDIT_GRACE_MS;
   const meta = readLocalBackupMeta();
@@ -380,26 +411,19 @@ async function pullRemote(): Promise<void> {
     meta !== null && Date.now() - meta.savedAt < LOCAL_EDIT_GRACE_MS;
   if (recentlyEdited || recentBackup) return;
 
+  if (Date.now() - lastTokenCheckAt < TOKEN_POLL_INTERVAL_MS - 1_000) return;
+
   try {
-    const remote = await fetchRemoteData();
-    if (remote.syncToken === syncState.syncToken) {
+    lastTokenCheckAt = Date.now();
+    const remoteToken = await fetchRemoteSyncToken();
+    if (!remoteToken || remoteToken === syncState.syncToken) {
       setSyncState({ isOnline: true, error: null });
       return;
     }
 
-    const previous = cache;
-    const next = enrichAttendance(fromRemotePayload(remote, cache));
-    cache = next;
-    writeLocalBackup(cache);
-    setSyncState({
-      status: 'idle',
-      syncToken: remote.syncToken,
-      lastSyncAt: new Date().toISOString(),
-      isOnline: true,
-      error: null,
-      hasLocalBackup: true,
-    });
-    dispatchDataEvents(previous, next);
+    if (Date.now() - lastFullPullAt < MIN_FULL_PULL_INTERVAL_MS) return;
+
+    await pullRemoteFull();
   } catch (error) {
     setSyncState({
       isOnline: false,
@@ -412,11 +436,8 @@ async function pullRemote(): Promise<void> {
 function startPolling(): void {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(() => {
-    pullRemote().catch(console.error);
-    if ((syncState.status === 'error' || hasPendingPush) && !pushInFlight) {
-      pushNow().catch(console.error);
-    }
-  }, POLL_INTERVAL_MS);
+    pullRemoteToken().catch(console.error);
+  }, TOKEN_POLL_INTERVAL_MS);
 }
 
 async function doInitDataStore({ fallback, seed }: InitDataStoreOptions): Promise<void> {
@@ -522,9 +543,25 @@ export function stopDataStorePolling(): void {
   pollTimer = null;
 }
 
-export async function forceSyncNow(): Promise<void> {
+export async function forceSyncNow(options?: { pull?: boolean }): Promise<void> {
   await flushPush();
-  await pullRemote();
+  if (options?.pull) {
+    await pullRemoteFull();
+  } else {
+    try {
+      const remoteToken = await fetchRemoteSyncToken();
+      if (remoteToken) {
+        setSyncState({
+          syncToken: remoteToken,
+          isOnline: true,
+          error: null,
+          lastSyncAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      // Push already completed; token check is best-effort.
+    }
+  }
 }
 
 export function registerPersistenceLifecycle(): () => void {
@@ -558,8 +595,16 @@ export function registerPersistenceLifecycle(): () => void {
   document.addEventListener('visibilitychange', flushOnHide);
   window.addEventListener('pagehide', flushOnUnload);
 
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') {
+      pullRemoteToken().catch(console.error);
+    }
+  };
+  document.addEventListener('visibilitychange', onVisible);
+
   return () => {
     document.removeEventListener('visibilitychange', flushOnHide);
     window.removeEventListener('pagehide', flushOnUnload);
+    document.removeEventListener('visibilitychange', onVisible);
   };
 }

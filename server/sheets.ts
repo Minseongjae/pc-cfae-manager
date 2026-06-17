@@ -36,6 +36,12 @@ const EMPTY_APP_SETTINGS: AppSettingsPayload = {
   security: {},
 };
 
+const READ_CACHE_TTL_MS = 45_000;
+const TAB_NAMES = Object.values(SHEET_NAMES);
+
+let sheetTitleToId: Map<string, number> | null = null;
+let dataReadCache: { payload: AppDataPayload; expiresAt: number } | null = null;
+
 function createSheetsClient(): sheets_v4.Sheets {
   const { email, key } = loadServiceAccountCredentials();
   const sheetId = process.env.GOOGLE_SHEETS_ID;
@@ -61,13 +67,27 @@ function sheetId(): string {
   return id;
 }
 
+async function loadSpreadsheetMeta(sheets: sheets_v4.Sheets): Promise<Map<string, number>> {
+  if (sheetTitleToId) return sheetTitleToId;
+  const response = await sheets.spreadsheets.get({
+    spreadsheetId: sheetId(),
+    fields: 'sheets.properties(title,sheetId)',
+  });
+  sheetTitleToId = new Map();
+  for (const sheet of response.data.sheets ?? []) {
+    const title = sheet.properties?.title;
+    const id = sheet.properties?.sheetId;
+    if (title && id != null) sheetTitleToId.set(title, id);
+  }
+  return sheetTitleToId;
+}
+
 async function getSheetIdByName(
   sheets: sheets_v4.Sheets,
   title: string
 ): Promise<number | null> {
-  const response = await sheets.spreadsheets.get({ spreadsheetId: sheetId() });
-  const match = response.data.sheets?.find((sheet) => sheet.properties?.title === title);
-  return match?.properties?.sheetId ?? null;
+  const meta = await loadSpreadsheetMeta(sheets);
+  return meta.get(title) ?? null;
 }
 
 async function ensureSheetExists(sheets: sheets_v4.Sheets, title: string): Promise<void> {
@@ -80,6 +100,46 @@ async function ensureSheetExists(sheets: sheets_v4.Sheets, title: string): Promi
       requests: [{ addSheet: { properties: { title } } }],
     },
   });
+}
+
+function valuesToDataRows(values: string[][] | null | undefined): string[][] {
+  const rows = values ?? [];
+  if (rows.length <= 1) return [];
+  return rows.slice(1).map((row) => row.map((cell) => String(cell ?? '')));
+}
+
+async function batchReadTabs(
+  sheets: sheets_v4.Sheets
+): Promise<Record<(typeof TAB_NAMES)[number], string[][]>> {
+  const ranges = TAB_NAMES.map((name) => `${name}!A:Z`);
+  const response = await sheets.spreadsheets.values.batchGet({
+    spreadsheetId: sheetId(),
+    ranges,
+  });
+  const result = {} as Record<(typeof TAB_NAMES)[number], string[][]>;
+  const valueRanges = response.data.valueRanges ?? [];
+  TAB_NAMES.forEach((name, index) => {
+    result[name] = valuesToDataRows(valueRanges[index]?.values as string[][] | undefined);
+  });
+  return result;
+}
+
+function invalidateReadCache(): void {
+  dataReadCache = null;
+}
+
+export async function readSyncToken(): Promise<string> {
+  const sheets = createSheetsClient();
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId(),
+    range: `${SHEET_NAMES.settings}!A:B`,
+  });
+  const rows = response.data.values ?? [];
+  const tokenRow = rows.find((row) => row[0] === 'sync_token');
+  if (tokenRow?.[1]) return String(tokenRow[1]);
+
+  const payload = await readAllData({ bypassCache: true });
+  return payload.syncToken;
 }
 
 async function readRows(sheets: sheets_v4.Sheets, tabName: string): Promise<string[][]> {
@@ -159,28 +219,23 @@ export async function initializeSheets(): Promise<void> {
   await ensureSheetWithHeaders(sheets, SHEET_NAMES.sales, HEADERS.sales);
 }
 
-export async function readAllData(): Promise<AppDataPayload> {
-  const sheets = createSheetsClient();
+export async function readAllData(options?: {
+  bypassCache?: boolean;
+}): Promise<AppDataPayload> {
+  if (!options?.bypassCache && dataReadCache && Date.now() < dataReadCache.expiresAt) {
+    return dataReadCache.payload;
+  }
 
-  const [
-    employeeRows,
-    scheduleRows,
-    attendanceRows,
-    payrollRows,
-    settingsRows,
-    inventoryRows,
-    purchaseRows,
-    salesRows,
-  ] = await Promise.all([
-    readRows(sheets, SHEET_NAMES.employees),
-    readRows(sheets, SHEET_NAMES.schedules),
-    readRows(sheets, SHEET_NAMES.attendance),
-    readRows(sheets, SHEET_NAMES.payroll),
-    readRows(sheets, SHEET_NAMES.settings),
-    readRows(sheets, SHEET_NAMES.inventory),
-    readRows(sheets, SHEET_NAMES.purchaseOrders),
-    readRows(sheets, SHEET_NAMES.sales),
-  ]);
+  const sheets = createSheetsClient();
+  const tabData = await batchReadTabs(sheets);
+  const employeeRows = tabData[SHEET_NAMES.employees];
+  const scheduleRows = tabData[SHEET_NAMES.schedules];
+  const attendanceRows = tabData[SHEET_NAMES.attendance];
+  const payrollRows = tabData[SHEET_NAMES.payroll];
+  const settingsRows = tabData[SHEET_NAMES.settings];
+  const inventoryRows = tabData[SHEET_NAMES.inventory];
+  const purchaseRows = tabData[SHEET_NAMES.purchaseOrders];
+  const salesRows = tabData[SHEET_NAMES.sales];
 
   const employees = employeeRows
     .map((row) => employeeFromRow([...HEADERS.employees], row))
@@ -232,10 +287,17 @@ export async function readAllData(): Promise<AppDataPayload> {
     salesRecords,
   };
 
-  return {
+  const payload = {
     ...base,
     syncToken: computeSyncToken(base),
   };
+
+  dataReadCache = {
+    payload,
+    expiresAt: Date.now() + READ_CACHE_TTL_MS,
+  };
+
+  return payload;
 }
 
 export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): Promise<string> {
@@ -271,6 +333,18 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
     updatedAt: record.updatedAt || now,
   }));
 
+  const syncToken = computeSyncToken({
+    employees,
+    scheduleShifts,
+    actualWorkRecords,
+    payrollAdjustmentRecords,
+    schoolSchedules: payload.schoolSchedules,
+    appSettings: payload.appSettings,
+    inventoryItems,
+    purchaseOrders,
+    salesRecords,
+  });
+
   await Promise.all([
     writeSheet(
       sheets,
@@ -303,6 +377,7 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
       buildSettingsRows({
         schoolSchedules: payload.schoolSchedules,
         appSettings: payload.appSettings,
+        syncToken,
       })
     ),
     writeSheet(
@@ -320,17 +395,9 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
     writeSheet(sheets, SHEET_NAMES.sales, HEADERS.sales, salesRecords.map(salesToRow)),
   ]);
 
-  return computeSyncToken({
-    employees,
-    scheduleShifts,
-    actualWorkRecords,
-    payrollAdjustmentRecords,
-    schoolSchedules: payload.schoolSchedules,
-    appSettings: payload.appSettings,
-    inventoryItems,
-    purchaseOrders,
-    salesRecords,
-  });
+  invalidateReadCache();
+
+  return syncToken;
 }
 
 export function isSheetsConfigured(): boolean {

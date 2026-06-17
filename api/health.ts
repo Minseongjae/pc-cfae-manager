@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getSheetsConfigStatus } from '../server/credentials.js';
-import { ensureSheetsReady, setCors } from './_shared/init.js';
+import { setCors } from './_shared/init.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
   setCors(res);
@@ -16,19 +16,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
   }
 
   const config = getSheetsConfigStatus();
-
-  if (config.configured) {
-    try {
-      await ensureSheetsReady();
-    } catch (error) {
-      res.status(500).json({
-        ok: false,
-        sheetsConfigured: false,
-        error: error instanceof Error ? error.message : 'Failed to initialize Google Sheets',
-      });
-      return;
-    }
-  }
 
   res.status(200).json({
     ok: true,
