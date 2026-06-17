@@ -24,6 +24,13 @@ import type {
   ThemeSettings,
 } from '@/lib/appSettings';
 import type { SchoolSchedule } from '@/lib/appStorage';
+import { ChevronDown, ChevronUp } from 'lucide-react';
+import { getScheduleShifts } from '@/lib/storage';
+import {
+  createShiftTypeId,
+  moveShiftType,
+  sortShiftTypes,
+} from '@/lib/scheduleShiftTypes';
 import type { ShiftType } from '@/types';
 
 type SettingsSectionId =
@@ -42,7 +49,7 @@ const SECTIONS: { id: SettingsSectionId; label: string; icon: typeof Building2 }
   { id: 'payroll', label: '급여 설정', icon: Shield },
   { id: 'schedule', label: '스케줄 설정', icon: Calendar },
   { id: 'positions', label: '직책 관리', icon: Users },
-  { id: 'shifts', label: '근무 유형', icon: Clock },
+  { id: 'shifts', label: '근무유형 관리', icon: Clock },
   { id: 'security', label: '관리자 비밀번호', icon: KeyRound },
   { id: 'sheets', label: '클라우드 동기화', icon: Cloud },
   { id: 'backup', label: '백업 / 복원', icon: Database },
@@ -77,7 +84,10 @@ export function SettingsPage() {
   const resetDraft = () => setDraft(settings);
 
   const handleSave = () => {
-    save(draft);
+    save({
+      ...draft,
+      shiftTypes: sortShiftTypes(draft.shiftTypes),
+    });
     setSavedMessage('Google Sheets에 저장되었습니다.');
     setTimeout(() => setSavedMessage(''), 2500);
   };
@@ -512,55 +522,138 @@ function ShiftTypesSection({
   value: ShiftType[];
   onChange: (v: ShiftType[]) => void;
 }) {
+  const [deleteError, setDeleteError] = useState('');
+  const sorted = sortShiftTypes(value);
+
   const update = (index: number, patch: Partial<ShiftType>) => {
-    onChange(value.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    onChange(sorted.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+  };
+
+  const handleDelete = (index: number) => {
+    const target = sorted[index];
+    const usedCount = getScheduleShifts().filter((shift) => shift.rowId === target.id).length;
+    if (usedCount > 0) {
+      setDeleteError(`"${target.name}" 유형은 스케줄에 ${usedCount}건 사용 중이라 삭제할 수 없습니다.`);
+      return;
+    }
+    if (sorted.length <= 1) {
+      setDeleteError('최소 1개의 근무유형이 필요합니다.');
+      return;
+    }
+    setDeleteError('');
+    onChange(sorted.filter((_, i) => i !== index).map((row, i) => ({ ...row, sortOrder: i })));
   };
 
   return (
-    <SectionCard title="근무 유형 관리" description="요일별 근무 템플릿">
+    <SectionCard
+      title="근무유형 관리"
+      description="스케줄표 행(근무유형)을 추가·수정·삭제하고 색상과 순서를 설정합니다. 저장 시 Google Sheets에 반영됩니다."
+    >
       <div className="space-y-3">
-        {value.map((row, index) => (
-          <div key={row.id} className="p-3 rounded-xl border border-stone-200 grid grid-cols-2 md:grid-cols-6 gap-2">
-            <input className="input-luxury" value={row.name} onChange={(e) => update(index, { name: e.target.value })} />
-            <select
-              className="input-luxury"
-              value={row.dayType}
-              onChange={(e) => update(index, { dayType: e.target.value as ShiftType['dayType'] })}
-            >
-              <option value="weekday">평일</option>
-              <option value="saturday">토요일</option>
-              <option value="sunday">일요일</option>
-            </select>
-            <input type="time" className="input-luxury" value={row.startTime} onChange={(e) => update(index, { startTime: e.target.value })} />
-            <input type="time" className="input-luxury" value={row.endTime} onChange={(e) => update(index, { endTime: e.target.value })} />
-            <input type="color" className="input-luxury h-[42px] p-1" value={row.color} onChange={(e) => update(index, { color: e.target.value })} />
-            <button
-              type="button"
-              className="btn-ghost text-rose-600 text-xs"
-              onClick={() => onChange(value.filter((_, i) => i !== index))}
-            >
-              삭제
-            </button>
+        {sorted.map((row, index) => (
+          <div
+            key={row.id}
+            className="p-3 md:p-4 rounded-xl border border-stone-200 space-y-3"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <span
+                  className="w-3 h-3 rounded border shrink-0"
+                  style={{ backgroundColor: `${row.color}22`, borderColor: row.color }}
+                />
+                <span className="text-xs text-stone-400 truncate">#{index + 1}</span>
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  className="btn-ghost p-1.5 touch-target"
+                  disabled={index === 0}
+                  onClick={() => onChange(moveShiftType(sorted, index, -1))}
+                  title="위로"
+                >
+                  <ChevronUp size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost p-1.5 touch-target"
+                  disabled={index === sorted.length - 1}
+                  onClick={() => onChange(moveShiftType(sorted, index, 1))}
+                  title="아래로"
+                >
+                  <ChevronDown size={16} />
+                </button>
+                <button
+                  type="button"
+                  className="btn-ghost text-rose-600 text-xs px-2 touch-target"
+                  onClick={() => handleDelete(index)}
+                >
+                  삭제
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="유형 이름">
+                <input
+                  className="input-luxury"
+                  value={row.name}
+                  onChange={(e) => update(index, { name: e.target.value })}
+                  placeholder="예: 오픈, 미들, 마감"
+                />
+              </Field>
+              <Field label="색상">
+                <input
+                  type="color"
+                  className="input-luxury h-[42px] p-1 w-full"
+                  value={row.color}
+                  onChange={(e) => update(index, { color: e.target.value })}
+                />
+              </Field>
+              <Field label="기본 시작">
+                <input
+                  type="time"
+                  className="input-luxury"
+                  value={row.defaultStartTime ?? '10:00'}
+                  onChange={(e) => update(index, { defaultStartTime: e.target.value })}
+                />
+              </Field>
+              <Field label="기본 종료">
+                <input
+                  type="time"
+                  className="input-luxury"
+                  value={row.defaultEndTime ?? '14:00'}
+                  onChange={(e) => update(index, { defaultEndTime: e.target.value })}
+                />
+              </Field>
+            </div>
           </div>
         ))}
+
+        {deleteError && (
+          <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">
+            {deleteError}
+          </p>
+        )}
+
         <button
           type="button"
-          className="btn-secondary text-sm"
-          onClick={() =>
+          className="btn-secondary text-sm w-full sm:w-auto touch-target"
+          onClick={() => {
+            setDeleteError('');
             onChange([
-              ...value,
+              ...sorted,
               {
-                id: Math.max(0, ...value.map((v) => v.id)) + 1,
+                id: createShiftTypeId('새 근무'),
                 name: '새 근무',
-                dayType: 'weekday',
-                startTime: '10:00',
-                endTime: '14:00',
                 color: '#C4A35A',
+                sortOrder: sorted.length,
+                defaultStartTime: '10:00',
+                defaultEndTime: '14:00',
               },
-            ])
-          }
+            ]);
+          }}
         >
-          + 근무 유형 추가
+          + 근무유형 추가
         </button>
       </div>
     </SectionCard>

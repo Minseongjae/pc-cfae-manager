@@ -1,9 +1,4 @@
-export type ShiftRowId = 'morning' | 'afternoon1' | 'afternoon2' | 'middle' | 'night' | 'training';
-
-export interface ShiftRow {
-  id: ShiftRowId;
-  label: string;
-}
+export type ShiftRowId = string;
 
 export interface ScheduleShift {
   id: string;
@@ -16,15 +11,6 @@ export interface ScheduleShift {
   endTime: string;
   duration: string;
 }
-
-export const shiftRows: ShiftRow[] = [
-  { id: 'morning', label: '오전' },
-  { id: 'afternoon1', label: '오후 1~4' },
-  { id: 'afternoon2', label: '오후 1~4' },
-  { id: 'middle', label: '미들' },
-  { id: 'night', label: '야간 1~2' },
-  { id: 'training', label: '교육 1~3' },
-];
 
 function shift(
   year: number,

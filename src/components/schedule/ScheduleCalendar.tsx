@@ -7,8 +7,9 @@ import {
 } from 'date-fns';
 import { CalendarLegend } from './CalendarLegend';
 import { ShiftCard } from './ShiftCard';
-import { shiftRows, type ScheduleShift, type ShiftRowId } from '@/data/mockSchedule';
+import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useScheduleShiftTypes } from '@/hooks/useScheduleShiftTypes';
 import {
   getHolidayName,
   isPublicHoliday,
@@ -102,6 +103,7 @@ export function ScheduleCalendar({
   readOnly = false,
 }: ScheduleCalendarProps) {
   const isMobile = useIsMobile();
+  const shiftTypes = useScheduleShiftTypes();
   const dayCellWidth = isMobile ? 92 : DAY_CELL_WIDTH;
   const rowLabelWidth = isMobile ? 52 : ROW_LABEL_WIDTH;
   const headerHeight = isMobile ? 58 : HEADER_HEIGHT;
@@ -140,14 +142,17 @@ export function ScheduleCalendar({
           >
             <span className="text-[10px] font-medium text-stone-400">구분</span>
           </div>
-          {shiftRows.map((row) => (
+          {shiftTypes.map((row) => (
             <div
               key={row.id}
               className="flex items-start px-2 py-3 md:px-3 md:py-4 border-b border-stone-200/80 last:border-b-0"
               style={{ minHeight: ROW_MIN_HEIGHT }}
             >
-              <span className="text-[10px] md:text-[11px] font-medium text-stone-500 leading-tight tracking-wide">
-                {row.label}
+              <span
+                className="text-[10px] md:text-[11px] font-medium leading-tight tracking-wide"
+                style={{ color: row.color }}
+              >
+                {row.name}
               </span>
             </div>
           ))}
@@ -186,7 +191,7 @@ export function ScheduleCalendar({
               })}
             </div>
 
-            {shiftRows.map((row) => (
+            {shiftTypes.map((row) => (
               <div
                 key={row.id}
                 className="flex border-b border-stone-200/60 last:border-b-0"

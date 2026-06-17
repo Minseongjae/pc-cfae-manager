@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 import {
   getScheduleShifts,
+  getShiftTypes,
   moveShift as moveShiftInStorage,
   resizeShift as resizeShiftInStorage,
   createShift as createShiftInStorage,
@@ -87,7 +88,12 @@ export function useScheduleShifts(year: number, month: number) {
     (defaults?: { day: number; rowId: ShiftRowId }) => {
       setModalMode('create');
       setEditingShift(null);
-      setCreateDefaults(defaults ?? { day: new Date().getDate(), rowId: 'morning' });
+      setCreateDefaults(
+        defaults ?? {
+          day: new Date().getDate(),
+          rowId: getShiftTypes()[0]?.id ?? 'morning',
+        }
+      );
     },
     []
   );

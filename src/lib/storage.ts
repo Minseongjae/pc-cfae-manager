@@ -46,6 +46,10 @@ import { isLowStock, INVENTORY_CHANGED_EVENT } from '@/lib/inventory';
 import { PURCHASE_ORDERS_CHANGED_EVENT } from '@/lib/purchaseOrders';
 import { dateKey, SALES_CHANGED_EVENT } from '@/lib/sales';
 import { getMonthlyPayroll } from '@/lib/payroll';
+import {
+  DEFAULT_SCHEDULE_SHIFT_TYPES,
+  migrateShiftTypes,
+} from '@/lib/scheduleShiftTypes';
 
 export type {
   AppStorage,
@@ -58,52 +62,10 @@ export type {
   ShiftInput,
 } from '@/lib/appStorage';
 
-const STORAGE_VERSION = 5;
-
-const SHIFT_COLORS: Record<string, string> = {
-  오후: '#C4A35A',
-  오후메인: '#8B5E3C',
-  미들야간: '#6B7B8C',
-  야간: '#3D4F5F',
-  중간: '#A67C52',
-  오전: '#7BA05B',
-};
+const STORAGE_VERSION = 6;
 
 function defaultShiftTypes(): ShiftType[] {
-  const weekday = [
-    { name: '오후', start: '14:00', end: '21:00' },
-    { name: '오후메인', start: '15:30', end: '23:00' },
-    { name: '미들야간', start: '21:00', end: '01:00' },
-    { name: '야간', start: '23:00', end: '06:00' },
-  ];
-  const saturday = [
-    { name: '오후', start: '13:00', end: '17:00' },
-    { name: '오후메인', start: '14:00', end: '21:00' },
-    { name: '중간', start: '17:00', end: '01:00' },
-    { name: '미들야간', start: '21:00', end: '03:00' },
-    { name: '야간', start: '00:00', end: '08:00' },
-  ];
-  const sunday = [
-    { name: '오전', start: '08:00', end: '15:00' },
-    { name: '오후', start: '13:00', end: '17:00' },
-    { name: '오후메인', start: '15:00', end: '24:00' },
-    { name: '중간', start: '17:00', end: '21:00' },
-    { name: '미들야간', start: '21:00', end: '01:00' },
-    { name: '야간', start: '00:00', end: '06:00' },
-  ];
-
-  let id = 1;
-  const types: ShiftType[] = [];
-  for (const s of weekday) {
-    types.push({ id: id++, name: s.name, dayType: 'weekday', startTime: s.start, endTime: s.end, color: SHIFT_COLORS[s.name] });
-  }
-  for (const s of saturday) {
-    types.push({ id: id++, name: s.name, dayType: 'saturday', startTime: s.start, endTime: s.end, color: SHIFT_COLORS[s.name] });
-  }
-  for (const s of sunday) {
-    types.push({ id: id++, name: s.name, dayType: 'sunday', startTime: s.start, endTime: s.end, color: SHIFT_COLORS[s.name] });
-  }
-  return types;
+  return DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
 }
 
 function defaultEmployees(): EmployeeRow[] {
@@ -220,9 +182,12 @@ export function restoreAppBackup(json: string): AppStorage {
 }
 
 function migrateAppSettingsFromStorage(parsed: AppStorage, defaults: AppStorage): AppSettings {
+  const rawShiftTypes = parsed.appSettings?.shiftTypes ?? parsed.shiftTypes ?? defaults.shiftTypes;
   return migrateAppSettings(
-    parsed.appSettings,
-    parsed.shiftTypes ?? defaults.shiftTypes,
+    parsed.appSettings
+      ? { ...parsed.appSettings, shiftTypes: migrateShiftTypes(rawShiftTypes) }
+      : parsed.appSettings,
+    migrateShiftTypes(rawShiftTypes),
     parsed.schoolSchedules ?? defaults.schoolSchedules
   );
 }
@@ -634,7 +599,7 @@ export function getSchoolSchedules(): SchoolSchedule[] {
 }
 
 export function getShiftTypes(): ShiftType[] {
-  return readStorage().appSettings.shiftTypes;
+  return migrateShiftTypes(readStorage().appSettings.shiftTypes);
 }
 
 export function getScheduleShifts(year?: number, month?: number): ScheduleShift[] {

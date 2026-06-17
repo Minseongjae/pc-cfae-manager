@@ -1,9 +1,10 @@
 import { useRef, useCallback, useMemo } from 'react';
 import { useDragGuard } from '@/contexts/DragGuardContext';
 import type { ScheduleShift } from '@/data/mockSchedule';
-import { getShiftCardColorClass } from '@/lib/shiftDisplay';
+import { getShiftCardColorClass, getShiftCardStyle } from '@/lib/shiftDisplay';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { useEmployees } from '@/contexts/EmployeesContext';
+import { findShiftTypeById, useScheduleShiftTypes } from '@/hooks/useScheduleShiftTypes';
 import { GripHorizontal } from 'lucide-react';
 
 interface ShiftCardProps {
@@ -29,13 +30,22 @@ export function ShiftCard({
 }: ShiftCardProps) {
   const { beginDrag, endDrag } = useDragGuard();
   const { employees } = useEmployees();
-  const colorClass = useMemo(() => {
+  const shiftTypes = useScheduleShiftTypes();
+  const { colorClass, cardStyle } = useMemo(() => {
     const employee = findEmployeeByShiftName(employees, shift.name);
-    return getShiftCardColorClass(
-      shift,
-      employee ? { position: employee.position, status: employee.status } : undefined
-    );
-  }, [employees, shift]);
+    const shiftType = findShiftTypeById(shiftTypes, shift.rowId);
+    return {
+      colorClass: getShiftCardColorClass(
+        shift,
+        employee ? { position: employee.position, status: employee.status } : undefined
+      ),
+      cardStyle: getShiftCardStyle(
+        shift,
+        shiftType,
+        employee ? { position: employee.position, status: employee.status } : undefined
+      ),
+    };
+  }, [employees, shift, shiftTypes]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
   const didDragRef = useRef(false);
 
@@ -95,6 +105,7 @@ export function ShiftCard({
         }, 100);
       }}
       onClick={handleClick}
+      style={cardStyle}
       className={`group relative rounded-xl border shadow-sm px-3 py-2.5 text-xs leading-snug select-none transition-all duration-200 ${colorClass} ${
         readOnly
           ? 'cursor-default'

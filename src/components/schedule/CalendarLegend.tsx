@@ -1,28 +1,22 @@
-import {
-  EMPLOYEE_COLOR_LABELS,
-  EMPLOYEE_SWATCH_CLASSES,
-  type EmployeeColorCategory,
-} from '@/lib/employeeColors';
-
-const LEGEND_ITEMS: EmployeeColorCategory[] = [
-  'store-manager',
-  'manager',
-  'staff',
-  'part-time',
-  'off',
-  'vacation',
-];
+import { useScheduleShiftTypes } from '@/hooks/useScheduleShiftTypes';
+import { normalizeHexColor } from '@/lib/scheduleShiftTypes';
 
 export function CalendarLegend() {
+  const shiftTypes = useScheduleShiftTypes();
+
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-1 text-[10px] md:text-xs text-stone-500">
-      <span className="font-medium text-stone-600 shrink-0">직원 색상</span>
-      {LEGEND_ITEMS.map((category) => (
-        <span key={category} className="inline-flex items-center gap-1.5 shrink-0">
+      <span className="font-medium text-stone-600 shrink-0">근무유형</span>
+      {shiftTypes.map((type) => (
+        <span key={type.id} className="inline-flex items-center gap-1.5 shrink-0">
           <span
-            className={`w-3 h-3 rounded border ${EMPLOYEE_SWATCH_CLASSES[category]}`}
+            className="w-3 h-3 rounded border"
+            style={{
+              backgroundColor: `${normalizeHexColor(type.color)}22`,
+              borderColor: normalizeHexColor(type.color),
+            }}
           />
-          {EMPLOYEE_COLOR_LABELS[category]}
+          {type.name}
         </span>
       ))}
       <span className="hidden sm:inline text-stone-300">|</span>

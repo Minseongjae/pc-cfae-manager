@@ -1,4 +1,5 @@
 import type { ShiftType } from '@/types';
+import { migrateShiftTypes } from '@/lib/scheduleShiftTypes';
 import type { SchoolSchedule } from '@/lib/appStorage';
 import { normalizeOptionalNumber } from '@/lib/numericInput';
 
@@ -153,10 +154,11 @@ export function migrateAppSettings(
       input.positions?.length && Array.isArray(input.positions)
         ? input.positions
         : defaults.positions,
-    shiftTypes:
+    shiftTypes: migrateShiftTypes(
       input.shiftTypes?.length && Array.isArray(input.shiftTypes)
         ? input.shiftTypes
-        : shiftTypes,
+        : shiftTypes
+    ),
     theme: { ...defaults.theme, ...(input.theme ?? {}) },
     security: { ...defaults.security, ...(input.security ?? {}) },
   };

@@ -6,12 +6,12 @@ export interface Employee {
 }
 
 export interface ShiftType {
-  id: number;
+  id: string;
   name: string;
-  dayType: 'weekday' | 'saturday' | 'sunday';
-  startTime: string;
-  endTime: string;
   color: string;
+  sortOrder: number;
+  defaultStartTime?: string;
+  defaultEndTime?: string;
 }
 
 export interface ShiftAssignment {
