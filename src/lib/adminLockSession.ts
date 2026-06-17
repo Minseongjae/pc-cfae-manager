@@ -1,50 +1,80 @@
-const SESSION_KEY = '1pc-cafe-manager-payroll-unlock';
-const ADMIN_PASSWORD = 'awesome1004!';
+import { hashPassword } from '@/lib/appSettings';
+import { getAppSettings } from '@/lib/storage';
+
+const LOCK_STATE_KEY = '1pc-cafe-admin-locked';
 
 export const ADMIN_LOCK_CHANGED_EVENT = 'admin-lock-changed';
 
 /** @deprecated Use ADMIN_LOCK_CHANGED_EVENT */
 export const PAYROLL_LOCK_CHANGED_EVENT = ADMIN_LOCK_CHANGED_EVENT;
 
-interface AdminUnlockSession {
-  unlockedAt: string;
+export interface UnlockResult {
+  ok: boolean;
+  message: string;
+}
+
+function dispatchLockChanged(): void {
+  window.dispatchEvent(new Event(ADMIN_LOCK_CHANGED_EVENT));
+}
+
+export function isAdminLocked(): boolean {
+  try {
+    const stored = localStorage.getItem(LOCK_STATE_KEY);
+    if (stored === null) return true;
+    return stored === 'true';
+  } catch {
+    return true;
+  }
 }
 
 export function isAdminUnlocked(): boolean {
-  try {
-    const raw = sessionStorage.getItem(SESSION_KEY);
-    if (!raw) return false;
-    JSON.parse(raw) as AdminUnlockSession;
-    return true;
-  } catch {
-    return false;
-  }
+  return !isAdminLocked();
 }
 
 /** @deprecated Use isAdminUnlocked */
 export const isPayrollUnlocked = isAdminUnlocked;
 
-export function unlockAdmin(password: string): boolean {
-  if (password !== ADMIN_PASSWORD) return false;
-  const session: AdminUnlockSession = { unlockedAt: new Date().toISOString() };
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  window.dispatchEvent(new Event(ADMIN_LOCK_CHANGED_EVENT));
-  return true;
+export async function unlockAdmin(password: string): Promise<UnlockResult> {
+  const storedHash = getAppSettings().security.passwordHash;
+  if (!storedHash) {
+    return {
+      ok: false,
+      message: '설정 메뉴에서 관리자 비밀번호를 먼저 설정해 주세요.',
+    };
+  }
+
+  const inputHash = await hashPassword(password);
+  if (inputHash !== storedHash) {
+    return { ok: false, message: '비밀번호가 올바르지 않습니다.' };
+  }
+
+  try {
+    localStorage.setItem(LOCK_STATE_KEY, 'false');
+  } catch {
+    return { ok: false, message: '잠금 해제 상태를 저장할 수 없습니다.' };
+  }
+
+  dispatchLockChanged();
+  return { ok: true, message: '' };
 }
 
 /** @deprecated Use unlockAdmin */
-export const unlockPayroll = unlockAdmin;
+export async function unlockPayroll(password: string): Promise<UnlockResult> {
+  return unlockAdmin(password);
+}
 
 export function lockAdmin(): void {
-  sessionStorage.removeItem(SESSION_KEY);
-  window.dispatchEvent(new Event(ADMIN_LOCK_CHANGED_EVENT));
+  try {
+    localStorage.setItem(LOCK_STATE_KEY, 'true');
+  } catch {
+    // ignore storage errors
+  }
+  dispatchLockChanged();
 }
 
 /** @deprecated Use lockAdmin */
 export const lockPayroll = lockAdmin;
 
-export const PROTECTED_PAGE_IDS = ['payroll', 'employees'] as const;
-
-export function isProtectedPage(page: string): boolean {
-  return (PROTECTED_PAGE_IDS as readonly string[]).includes(page);
+export function hasAdminPasswordConfigured(): boolean {
+  return Boolean(getAppSettings().security.passwordHash);
 }

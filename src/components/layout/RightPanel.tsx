@@ -3,8 +3,11 @@ import { Search, Plus, MoreVertical, ChevronLeft, ChevronRight } from 'lucide-re
 import { getSchoolSchedules } from '@/lib/storage';
 import { SETTINGS_CHANGED_EVENT } from '@/lib/appSettings';
 import { useEmployees } from '@/contexts/EmployeesContext';
-import { getPositionLabel, getStatusLabel } from '@/lib/employees';
-import type { EmployeeStatus } from '@/lib/employees';
+import { useAdminLockContext } from '@/contexts/AdminLockContext';
+import { AdminLockButton } from '@/components/auth/AdminLockButton';
+import { getPositionLabel } from '@/lib/employees';
+import { getEmployeeAvatarClass } from '@/lib/employeeColors';
+import type { EmployeeRow } from '@/lib/storage';
 
 const PAGE_SIZE = 5;
 
@@ -13,6 +16,8 @@ export function RightPanel({ className = '' }: { className?: string }) {
   const [page, setPage] = useState(1);
   const [schoolVersion, setSchoolVersion] = useState(0);
   const { employees, openCreate, openEdit } = useEmployees();
+  const { unlocked, requireUnlock } = useAdminLockContext();
+
   useEffect(() => {
     const handler = () => setSchoolVersion((v) => v + 1);
     window.addEventListener(SETTINGS_CHANGED_EVENT, handler);
@@ -30,20 +35,31 @@ export function RightPanel({ className = '' }: { className?: string }) {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const paged = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
+  const handleCreate = () => requireUnlock(() => openCreate());
+  const handleEdit = (employee: EmployeeRow) => requireUnlock(() => openEdit(employee));
+
   return (
     <aside
       className={`flex-[1] min-w-[200px] max-w-[260px] h-full flex flex-col shrink-0 overflow-hidden p-4 gap-4 ${className}`}
     >
       <div className="card flex flex-col flex-1 min-h-0 overflow-hidden">
-        <div className="px-4 py-4 border-b border-stone-200 flex items-center justify-between">
-          <div>
+        <div className="px-4 py-4 border-b border-stone-200 flex items-center justify-between gap-2">
+          <div className="min-w-0">
             <h2 className="text-sm font-semibold text-stone-700">직원 관리</h2>
-            <p className="text-[11px] text-stone-400 mt-0.5">{employees.length}명 등록</p>
+            <p className="text-[11px] text-stone-400 mt-0.5">
+              {employees.length}명 등록
+              {!unlocked && ' · 잠금'}
+            </p>
           </div>
-          <button className="btn-primary text-xs py-2 px-3" onClick={openCreate}>
-            <Plus size={14} />
-            추가
-          </button>
+          <div className="flex items-center gap-1 shrink-0">
+            <AdminLockButton size="sm" showLabel={false} />
+            {unlocked && (
+              <button className="btn-primary text-xs py-2 px-3" onClick={handleCreate}>
+                <Plus size={14} />
+                추가
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="px-4 py-3">
@@ -70,10 +86,10 @@ export function RightPanel({ className = '' }: { className?: string }) {
                 className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-stone-50 transition-colors group"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="w-8 h-8 rounded-full bg-stone-200 flex items-center justify-center shrink-0">
-                    <span className="text-xs font-medium text-stone-700">
-                      {emp.name.charAt(0)}
-                    </span>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${getEmployeeAvatarClass(emp.position, emp.status)}`}
+                  >
+                    {emp.name.charAt(0)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-medium text-stone-700 whitespace-nowrap truncate">
@@ -84,16 +100,15 @@ export function RightPanel({ className = '' }: { className?: string }) {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <StatusPill status={emp.status} />
+                {unlocked && (
                   <button
                     className="btn-ghost p-1 opacity-0 group-hover:opacity-100"
-                    onClick={() => openEdit(emp)}
+                    onClick={() => handleEdit(emp)}
                     title="수정"
                   >
                     <MoreVertical size={14} />
                   </button>
-                </div>
+                )}
               </div>
             ))}
           </div>
@@ -135,27 +150,5 @@ export function RightPanel({ className = '' }: { className?: string }) {
         </div>
       </div>
     </aside>
-  );
-}
-
-function StatusPill({ status }: { status: EmployeeStatus }) {
-  const styles: Record<EmployeeStatus, string> = {
-    working: 'bg-emerald-50 text-emerald-700',
-    leave: 'bg-amber-50 text-amber-700',
-    resigned: 'bg-stone-200 text-stone-500',
-  };
-  const dots: Record<EmployeeStatus, string> = {
-    working: 'bg-emerald-500',
-    leave: 'bg-amber-500',
-    resigned: 'bg-stone-400',
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${styles[status]}`}
-    >
-      <span className={`w-1.5 h-1.5 rounded-full ${dots[status]}`} />
-      {getStatusLabel(status)}
-    </span>
   );
 }

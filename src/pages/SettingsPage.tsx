@@ -9,6 +9,7 @@ import {
   Shield,
   Users,
   Clock,
+  KeyRound,
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { NumericInput } from '@/components/ui/NumericInput';
@@ -31,6 +32,7 @@ type SettingsSectionId =
   | 'schedule'
   | 'positions'
   | 'shifts'
+  | 'security'
   | 'sheets'
   | 'backup'
   | 'theme';
@@ -41,6 +43,7 @@ const SECTIONS: { id: SettingsSectionId; label: string; icon: typeof Building2 }
   { id: 'schedule', label: '스케줄 설정', icon: Calendar },
   { id: 'positions', label: '직책 관리', icon: Users },
   { id: 'shifts', label: '근무 유형', icon: Clock },
+  { id: 'security', label: '관리자 비밀번호', icon: KeyRound },
   { id: 'sheets', label: '클라우드 동기화', icon: Cloud },
   { id: 'backup', label: '백업 / 복원', icon: Database },
   { id: 'theme', label: '테마 설정', icon: Palette },
@@ -161,6 +164,7 @@ export function SettingsPage() {
                 onChange={(shiftTypes) => patchDraft({ shiftTypes })}
               />
             )}
+            {active === 'security' && <SecuritySection />}
             {active === 'sheets' && <CloudSyncSection />}
             {active === 'backup' && <BackupSection />}
             {active === 'theme' && (
@@ -622,6 +626,111 @@ function BackupSection() {
         </label>
       </div>
       {message && <p className="text-xs text-stone-600">{message}</p>}
+    </SectionCard>
+  );
+}
+
+function SecuritySection() {
+  const { settings, changePassword } = useSettings();
+  const isFirstSetup = !settings.security.passwordHash;
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    setError('');
+    setMessage('');
+
+    if (newPassword !== confirmPassword) {
+      setError('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+
+    setSubmitting(true);
+    const result = await changePassword(isFirstSetup ? '' : currentPassword, newPassword);
+    setSubmitting(false);
+
+    if (result.ok) {
+      setMessage(result.message);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+      return;
+    }
+
+    setError(result.message);
+  };
+
+  return (
+    <SectionCard
+      title="관리자 비밀번호"
+      description="직원 추가·수정·삭제, 시급 변경, 근무표·급여 수정에 사용됩니다"
+    >
+      {isFirstSetup ? (
+        <p className="text-sm text-amber-800 bg-amber-50 border border-amber-100 rounded-xl px-4 py-3">
+          최초 1회 관리자 비밀번호를 설정해 주세요. 설정 후 잠금 해제에 사용됩니다.
+        </p>
+      ) : (
+        <p className="text-sm text-stone-600">
+          비밀번호는 Google Sheets에 암호화(해시)되어 저장됩니다.
+        </p>
+      )}
+
+      <div className="grid gap-4 max-w-md">
+        {!isFirstSetup && (
+          <Field label="현재 비밀번호">
+            <input
+              type="password"
+              className="input-luxury"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </Field>
+        )}
+        <Field label={isFirstSetup ? '새 비밀번호' : '새 비밀번호'}>
+          <input
+            type="password"
+            className="input-luxury"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            autoComplete="new-password"
+            placeholder="4자 이상"
+          />
+        </Field>
+        <Field label="새 비밀번호 확인">
+          <input
+            type="password"
+            className="input-luxury"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+        </Field>
+      </div>
+
+      {error && (
+        <p className="text-xs text-rose-600 bg-rose-50 border border-rose-100 rounded-xl px-3 py-2">
+          {error}
+        </p>
+      )}
+      {message && (
+        <p className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2">
+          {message}
+        </p>
+      )}
+
+      <button
+        type="button"
+        className="btn-primary text-sm"
+        onClick={handleSubmit}
+        disabled={submitting || !newPassword || !confirmPassword}
+      >
+        {submitting ? '저장 중…' : isFirstSetup ? '비밀번호 설정' : '비밀번호 변경'}
+      </button>
     </SectionCard>
   );
 }

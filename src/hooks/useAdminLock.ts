@@ -12,3 +12,6 @@ export function useAdminLock(): boolean {
 
   return unlocked;
 }
+
+/** Prefer useAdminLockContext for lock/unlock actions */
+export { useAdminLockContext } from '@/contexts/AdminLockContext';

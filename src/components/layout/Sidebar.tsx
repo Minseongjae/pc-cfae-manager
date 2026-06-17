@@ -14,8 +14,7 @@ import {
 } from 'lucide-react';
 import type { PageId } from '@/types';
 import { SyncStatusBadge } from '@/components/layout/SyncStatusBadge';
-import { useAdminLock } from '@/hooks/useAdminLock';
-import { isProtectedPage, lockAdmin } from '@/lib/adminLockSession';
+import { AdminLockButton } from '@/components/auth/AdminLockButton';
 
 interface NavItem {
   id: PageId;
@@ -43,16 +42,7 @@ interface SidebarProps {
 }
 
 export function Sidebar({ currentPage, onNavigate, className = '', onClose }: SidebarProps) {
-  const adminUnlocked = useAdminLock();
   const isDrawer = Boolean(onClose);
-
-  const handleLockAdmin = () => {
-    lockAdmin();
-    onClose?.();
-    if (isProtectedPage(currentPage)) {
-      onNavigate('schedule');
-    }
-  };
 
   return (
     <aside
@@ -107,16 +97,16 @@ export function Sidebar({ currentPage, onNavigate, className = '', onClose }: Si
       <SyncStatusBadge />
 
       <div className="px-3 pb-5 safe-bottom">
-        {adminUnlocked ? (
-          <button
-            type="button"
-            onClick={handleLockAdmin}
-            className="nav-item nav-item-inactive border border-stone-200/80 w-full touch-nav"
-          >
-            <Lock size={18} strokeWidth={1.75} className="text-stone-400" />
-            <span>관리자 잠금</span>
-          </button>
-        ) : null}
+        <div className="nav-item nav-item-inactive border border-stone-200/80 w-full touch-nav p-0 overflow-hidden">
+          <AdminLockButton
+            className="w-full justify-start px-3 py-2.5 border-0 rounded-none bg-transparent hover:bg-stone-50"
+            showLabel
+          />
+        </div>
+        <p className="text-[10px] text-stone-400 text-center mt-2 px-2 leading-relaxed">
+          <Lock size={10} className="inline mr-1" />
+          잠금 상태는 새로고침 후에도 유지됩니다
+        </p>
       </div>
     </aside>
   );

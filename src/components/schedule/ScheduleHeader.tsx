@@ -13,6 +13,7 @@ interface ScheduleHeaderProps {
   canGoNext?: boolean;
   onToday: () => void;
   onCreateShift: () => void;
+  readOnly?: boolean;
 }
 
 export function ScheduleHeader({
@@ -26,6 +27,7 @@ export function ScheduleHeader({
   canGoNext = true,
   onToday,
   onCreateShift,
+  readOnly = false,
 }: ScheduleHeaderProps) {
   return (
     <header className="page-header px-4 py-4 md:px-6 shrink-0">
@@ -77,10 +79,12 @@ export function ScheduleHeader({
             ))}
           </div>
 
+          {!readOnly && (
           <button className="btn-primary w-full sm:w-auto touch-target justify-center" onClick={onCreateShift}>
             <Plus size={16} strokeWidth={2} />
             근무 추가
           </button>
+          )}
         </div>
       </div>
     </header>

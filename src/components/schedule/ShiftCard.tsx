@@ -9,6 +9,7 @@ import { GripHorizontal } from 'lucide-react';
 interface ShiftCardProps {
   shift: ScheduleShift;
   isDragging?: boolean;
+  readOnly?: boolean;
   onDragStart: (shiftId: string) => void;
   onDragEnd: () => void;
   onResize: (shiftId: string, deltaHours: number) => void;
@@ -20,6 +21,7 @@ const RESIZE_PX_PER_HOUR = 18;
 export function ShiftCard({
   shift,
   isDragging,
+  readOnly = false,
   onDragStart,
   onDragEnd,
   onResize,
@@ -29,7 +31,10 @@ export function ShiftCard({
   const { employees } = useEmployees();
   const colorClass = useMemo(() => {
     const employee = findEmployeeByShiftName(employees, shift.name);
-    return getShiftCardColorClass(shift, employee?.status);
+    return getShiftCardColorClass(
+      shift,
+      employee ? { position: employee.position, status: employee.status } : undefined
+    );
   }, [employees, shift]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
   const didDragRef = useRef(false);
@@ -65,6 +70,7 @@ export function ShiftCard({
   );
 
   const handleClick = () => {
+    if (readOnly) return;
     if (didDragRef.current) {
       didDragRef.current = false;
       return;
@@ -74,8 +80,9 @@ export function ShiftCard({
 
   return (
     <div
-      draggable
+      draggable={!readOnly}
       onDragStart={(e) => {
+        if (readOnly) return;
         didDragRef.current = true;
         e.dataTransfer.setData('text/shift-id', shift.id);
         e.dataTransfer.effectAllowed = 'move';
@@ -88,10 +95,15 @@ export function ShiftCard({
         }, 100);
       }}
       onClick={handleClick}
-      className={`group relative rounded-xl border shadow-sm px-3 py-2.5 text-xs leading-snug cursor-pointer select-none transition-all duration-200 ${colorClass} ${
-        isDragging ? 'opacity-50 scale-95 shadow-none' : 'opacity-100 hover:shadow-md hover:-translate-y-0.5'
+      className={`group relative rounded-xl border shadow-sm px-3 py-2.5 text-xs leading-snug select-none transition-all duration-200 ${colorClass} ${
+        readOnly
+          ? 'cursor-default'
+          : 'cursor-pointer'
+      } ${
+        isDragging ? 'opacity-50 scale-95 shadow-none' : `opacity-100 ${readOnly ? '' : 'hover:shadow-md hover:-translate-y-0.5'}`
       }`}
     >
+      {!readOnly && (
       <div
         className="absolute top-1 right-1 w-4 h-4 rounded opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing"
         draggable
@@ -104,12 +116,14 @@ export function ShiftCard({
         }}
         title="드래그하여 이동"
       />
+      )}
       <div className="font-semibold text-sm tracking-tight pr-4 truncate">{shift.name}</div>
       <div className="mt-1 font-medium opacity-90 text-[11px] md:text-xs">
         {shift.startTime} – {shift.endTime}
       </div>
       <div className="opacity-75 text-[10px] md:text-[11px] mt-0.5">{shift.duration}h</div>
 
+      {!readOnly && (
       <div
         onMouseDown={handleResizeStart}
         onClick={(e) => e.stopPropagation()}
@@ -118,6 +132,7 @@ export function ShiftCard({
       >
         <GripHorizontal size={12} className="text-stone-400" />
       </div>
+      )}
     </div>
   );
 }

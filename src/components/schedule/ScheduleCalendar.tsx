@@ -30,6 +30,7 @@ interface ScheduleCalendarProps {
   onResize: (shiftId: string, deltaHours: number) => void;
   onEditShift: (shift: ScheduleShift) => void;
   onCreateInCell?: (day: number, rowId: ShiftRowId) => void;
+  readOnly?: boolean;
 }
 
 const DAY_CELL_WIDTH = 128;
@@ -98,6 +99,7 @@ export function ScheduleCalendar({
   onResize,
   onEditShift,
   onCreateInCell,
+  readOnly = false,
 }: ScheduleCalendarProps) {
   const isMobile = useIsMobile();
   const dayCellWidth = isMobile ? 92 : DAY_CELL_WIDTH;
@@ -202,12 +204,13 @@ export function ScheduleCalendar({
                       key={cellKey}
                       style={{ width: dayCellWidth }}
                       onDragOver={(e) => {
+                        if (readOnly) return;
                         e.preventDefault();
                         e.dataTransfer.dropEffect = 'move';
                         onDragOver(cellKey);
                       }}
                       onDrop={(e) => {
-                        e.preventDefault();
+                        if (readOnly) return;
                         const shiftId = e.dataTransfer.getData('text/shift-id');
                         if (shiftId) onDrop(shiftId, dayNum, row.id);
                       }}
@@ -219,6 +222,7 @@ export function ScheduleCalendar({
                         <ShiftCard
                           key={s.id}
                           shift={s}
+                          readOnly={readOnly}
                           isDragging={draggingId === s.id}
                           onDragStart={onDragStart}
                           onDragEnd={onDragEnd}
@@ -226,7 +230,7 @@ export function ScheduleCalendar({
                           onEdit={onEditShift}
                         />
                       ))}
-                      {cellShifts.length === 0 && onCreateInCell && (
+                      {cellShifts.length === 0 && onCreateInCell && !readOnly && (
                         <button
                           type="button"
                           onClick={() => onCreateInCell(dayNum, row.id)}

@@ -9,15 +9,15 @@ import {
 import { PayrollSummaryCards } from '@/components/payroll/PayrollSummaryCards';
 import { PayrollTable } from '@/components/payroll/PayrollTable';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { AdminLockScreen } from '@/components/auth/AdminLockScreen';
-import { useAdminLock } from '@/hooks/useAdminLock';
-import { Wallet } from 'lucide-react';
+import { AdminLockBanner } from '@/components/auth/AdminLockBanner';
+import { AdminLockButton } from '@/components/auth/AdminLockButton';
+import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useActualWorkVersion } from '@/contexts/ActualWorkContext';
 import { usePayrollAdjustments } from '@/contexts/PayrollAdjustmentsContext';
 
 export function PayrollPage() {
-  const unlocked = useAdminLock();
+  const { unlocked } = useAdminLockContext();
   const { version: employeeVersion } = useEmployees();
   const actualWorkVersion = useActualWorkVersion();
   const { version: adjustmentVersion } = usePayrollAdjustments();
@@ -93,51 +93,48 @@ export function PayrollPage() {
     monthly: '월간',
   };
 
-  if (!unlocked) {
-    return (
-      <AdminLockScreen
-        title="급여 관리"
-        description="급여 정보는 관리자만 열람할 수 있습니다."
-        icon={Wallet}
-      />
-    );
-  }
-
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <PageHeader
         title="급여 관리"
         subtitle="실근무 기준 자동 계산 · 수동 조정 반영"
       >
-        <div className="segment-control">
-          {(['daily', 'weekly', 'monthly'] as PayrollPeriod[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`segment-item ${period === p ? 'segment-item-active' : ''}`}
-            >
-              {periodLabels[p]}
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <AdminLockButton size="sm" />
+          <div className="segment-control">
+            {(['daily', 'weekly', 'monthly'] as PayrollPeriod[]).map((p) => (
+              <button
+                key={p}
+                onClick={() => setPeriod(p)}
+                className={`segment-item ${period === p ? 'segment-item-active' : ''}`}
+              >
+                {periodLabels[p]}
+              </button>
+            ))}
+          </div>
 
-        <div className="flex items-center gap-1 bg-stone-100 rounded-xl p-1">
-          <button onClick={goPrev} className="btn-ghost">
-            <ChevronLeft size={18} />
-          </button>
-          <span className="text-sm font-medium text-stone-600 min-w-[140px] text-center px-2">
-            {summary.periodLabel}
-          </span>
-          <button onClick={goNext} className="btn-ghost">
-            <ChevronRight size={18} />
-          </button>
-          <button onClick={goToday} className="btn-secondary text-xs py-1.5 px-3 ml-1">
-            오늘
-          </button>
+          <div className="flex items-center gap-1 bg-stone-100 rounded-xl p-1">
+            <button onClick={goPrev} className="btn-ghost">
+              <ChevronLeft size={18} />
+            </button>
+            <span className="text-sm font-medium text-stone-600 min-w-[140px] text-center px-2">
+              {summary.periodLabel}
+            </span>
+            <button onClick={goNext} className="btn-ghost">
+              <ChevronRight size={18} />
+            </button>
+            <button onClick={goToday} className="btn-secondary text-xs py-1.5 px-3 ml-1">
+              오늘
+            </button>
+          </div>
         </div>
       </PageHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4 md:space-y-6">
+        {!unlocked && (
+          <AdminLockBanner message="잠금 상태입니다. 급여는 조회만 가능하며, 조정은 비밀번호 입력 후 가능합니다." />
+        )}
+
         <div className="card px-4 py-3 md:px-5 md:py-4 bg-stone-50 border-stone-200">
           <p className="text-sm text-stone-700">
             <span className="font-semibold">시급 × 근무시간</span>으로 자동 급여를 계산하고,
@@ -146,7 +143,7 @@ export function PayrollPage() {
         </div>
         <PayrollSummaryCards summary={summary} />
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <PayrollTable summary={summary} period={period} />
+          <PayrollTable summary={summary} period={period} readOnly={!unlocked} />
         </div>
       </div>
     </div>

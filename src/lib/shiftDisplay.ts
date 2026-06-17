@@ -1,31 +1,20 @@
-import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
+import type { ScheduleShift } from '@/data/mockSchedule';
 import type { EmployeeStatus } from '@/lib/employees';
+import {
+  EMPLOYEE_CARD_CLASSES,
+  EMPLOYEE_COLOR_LABELS,
+  EMPLOYEE_SWATCH_CLASSES,
+  getEmployeeCardClass,
+  type EmployeeColorCategory,
+} from '@/lib/employeeColors';
 
-export type ShiftDisplayCategory = 'morning' | 'afternoon' | 'closing' | 'off' | 'vacation';
+export type ShiftDisplayCategory = EmployeeColorCategory;
 
-export const SHIFT_CATEGORY_LABELS: Record<ShiftDisplayCategory, string> = {
-  morning: '오전',
-  afternoon: '오후',
-  closing: '마감',
-  off: '휴무',
-  vacation: '휴가',
-};
+export const SHIFT_CATEGORY_LABELS = EMPLOYEE_COLOR_LABELS;
 
-export const SHIFT_CATEGORY_COLORS: Record<ShiftDisplayCategory, string> = {
-  morning: 'bg-blue-50 border-blue-300/80 text-blue-900',
-  afternoon: 'bg-emerald-50 border-emerald-300/80 text-emerald-900',
-  closing: 'bg-violet-50 border-violet-400/80 text-violet-900',
-  off: 'bg-stone-100 border-stone-300/80 text-stone-500',
-  vacation: 'bg-orange-50 border-orange-300/80 text-orange-900',
-};
+export const SHIFT_CATEGORY_COLORS = EMPLOYEE_CARD_CLASSES;
 
-export const SHIFT_CATEGORY_SWATCHES: Record<ShiftDisplayCategory, string> = {
-  morning: 'bg-blue-50 border-blue-300',
-  afternoon: 'bg-emerald-50 border-emerald-300',
-  closing: 'bg-violet-50 border-violet-400',
-  off: 'bg-stone-100 border-stone-300',
-  vacation: 'bg-orange-50 border-orange-300',
-};
+export const SHIFT_CATEGORY_SWATCHES = EMPLOYEE_SWATCH_CLASSES;
 
 const OFF_KEYWORDS = ['휴무', 'off', 'OFF'];
 const VACATION_KEYWORDS = ['휴가', '연차', '병가', '교육'];
@@ -37,31 +26,36 @@ function nameMatches(name: string, keywords: string[]): boolean {
 
 export function getShiftDisplayCategory(
   shift: ScheduleShift,
-  employeeStatus?: EmployeeStatus
+  employee?: { position: string; status: EmployeeStatus }
 ): ShiftDisplayCategory {
   const name = shift.name.trim();
 
   if (nameMatches(name, OFF_KEYWORDS)) return 'off';
   if (nameMatches(name, VACATION_KEYWORDS) || shift.rowId === 'training') return 'vacation';
-  if (employeeStatus === 'leave') return 'vacation';
+  if (employee?.status === 'leave') return 'vacation';
 
-  switch (shift.rowId as ShiftRowId) {
-    case 'morning':
-      return 'morning';
-    case 'afternoon1':
-    case 'afternoon2':
-      return 'afternoon';
-    case 'middle':
-    case 'night':
-      return 'closing';
-    default:
-      return 'afternoon';
+  if (employee) {
+    if (employee.status === 'resigned') return 'off';
+    const position = employee.position;
+    if (position === 'store-manager') return 'store-manager';
+    if (position === 'manager') return 'manager';
+    if (position === 'part-time') return 'part-time';
+    return 'staff';
   }
+
+  return 'staff';
 }
 
 export function getShiftCardColorClass(
   shift: ScheduleShift,
-  employeeStatus?: EmployeeStatus
+  employee?: { position: string; status: EmployeeStatus }
 ): string {
-  return SHIFT_CATEGORY_COLORS[getShiftDisplayCategory(shift, employeeStatus)];
+  const category = getShiftDisplayCategory(shift, employee);
+  if (category === 'off' || category === 'vacation') {
+    return EMPLOYEE_CARD_CLASSES[category];
+  }
+  if (employee) {
+    return getEmployeeCardClass(employee.position, employee.status);
+  }
+  return EMPLOYEE_CARD_CLASSES[category];
 }

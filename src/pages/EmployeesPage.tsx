@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
-import { Plus, Search, Pencil, Users } from 'lucide-react';
+import { Plus, Search, Pencil } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { AdminLockScreen } from '@/components/auth/AdminLockScreen';
-import { useAdminLock } from '@/hooks/useAdminLock';
+import { AdminLockBanner } from '@/components/auth/AdminLockBanner';
+import { AdminLockButton } from '@/components/auth/AdminLockButton';
+import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import {
   getPositionLabel,
@@ -12,26 +13,24 @@ import {
   STATUS_OPTIONS,
   type EmployeeStatus,
 } from '@/lib/employees';
+import {
+  EMPLOYEE_COLOR_LABELS,
+  EMPLOYEE_SWATCH_CLASSES,
+  getEmployeeAvatarClass,
+  getEmployeeBadgeClass,
+  getEmployeeColorCategory,
+} from '@/lib/employeeColors';
 import type { EmployeeRow } from '@/lib/storage';
 
-function StatusBadge({ status }: { status: EmployeeStatus }) {
-  const styles: Record<EmployeeStatus, string> = {
-    working: 'bg-emerald-50 text-emerald-700',
-    leave: 'bg-amber-50 text-amber-700',
-    resigned: 'bg-stone-100 text-stone-500',
-  };
-  const dots: Record<EmployeeStatus, string> = {
-    working: 'bg-emerald-500',
-    leave: 'bg-amber-500',
-    resigned: 'bg-stone-400',
-  };
+function StatusBadge({ employee }: { employee: EmployeeRow }) {
+  const category = getEmployeeColorCategory(employee.position, employee.status);
 
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${styles[status]}`}
+      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${getEmployeeBadgeClass(employee.position, employee.status)}`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${dots[status]}`} />
-      {getStatusLabel(status)}
+      <span className={`w-2 h-2 rounded-full border ${EMPLOYEE_SWATCH_CLASSES[category]}`} />
+      {getPositionLabel(employee.position)}
     </span>
   );
 }
@@ -45,7 +44,7 @@ function formatHireDate(date: string): string {
 }
 
 export function EmployeesPage() {
-  const unlocked = useAdminLock();
+  const { unlocked, requireUnlock } = useAdminLockContext();
   const { employees, openCreate, openEdit } = useEmployees();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EmployeeStatus | 'all'>('all');
@@ -72,26 +71,38 @@ export function EmployeesPage() {
     };
   }, [employees]);
 
-  if (!unlocked) {
-    return (
-      <AdminLockScreen
-        title="직원 관리"
-        description="직원 정보는 관리자만 열람할 수 있습니다."
-        icon={Users}
-      />
-    );
-  }
+  const handleCreate = () => requireUnlock(() => openCreate());
+  const handleEdit = (employee: EmployeeRow) => requireUnlock(() => openEdit(employee));
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <PageHeader title="직원 관리" subtitle={`총 ${counts.total}명 등록`}>
-        <button className="btn-primary" onClick={openCreate}>
-          <Plus size={16} strokeWidth={2} />
-          직원 추가
-        </button>
+        <div className="flex items-center gap-2">
+          <AdminLockButton size="sm" />
+          {unlocked && (
+            <button className="btn-primary" onClick={handleCreate}>
+              <Plus size={16} strokeWidth={2} />
+              직원 추가
+            </button>
+          )}
+        </div>
       </PageHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4 md:space-y-5">
+        {!unlocked && <AdminLockBanner />}
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] md:text-xs text-stone-500">
+          <span className="font-medium text-stone-600">직원 색상</span>
+          {(['store-manager', 'manager', 'staff', 'part-time', 'off', 'vacation'] as const).map(
+            (category) => (
+              <span key={category} className="inline-flex items-center gap-1.5">
+                <span className={`w-3 h-3 rounded border ${EMPLOYEE_SWATCH_CLASSES[category]}`} />
+                {EMPLOYEE_COLOR_LABELS[category]}
+              </span>
+            )
+          )}
+        </div>
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <SummaryCard label="전체" value={counts.total} />
           <SummaryCard label="근무" value={counts.working} accent="emerald" />
@@ -145,7 +156,12 @@ export function EmployeesPage() {
             <>
               <div className="md:hidden divide-y divide-stone-100">
                 {filtered.map((emp) => (
-                  <EmployeeCard key={emp.id} employee={emp} onEdit={openEdit} />
+                  <EmployeeCard
+                    key={emp.id}
+                    employee={emp}
+                    onEdit={handleEdit}
+                    readOnly={!unlocked}
+                  />
                 ))}
               </div>
 
@@ -159,12 +175,17 @@ export function EmployeesPage() {
                       <th>전화번호</th>
                       <th>입사일</th>
                       <th>상태</th>
-                      <th className="w-16" />
+                      {unlocked && <th className="w-16" />}
                     </tr>
                   </thead>
                   <tbody>
                     {filtered.map((emp) => (
-                      <EmployeeRowItem key={emp.id} employee={emp} onEdit={openEdit} />
+                      <EmployeeRowItem
+                        key={emp.id}
+                        employee={emp}
+                        onEdit={handleEdit}
+                        readOnly={!unlocked}
+                      />
                     ))}
                   </tbody>
                 </table>
@@ -180,24 +201,27 @@ export function EmployeesPage() {
 function EmployeeCard({
   employee,
   onEdit,
+  readOnly,
 }: {
   employee: EmployeeRow;
   onEdit: (employee: EmployeeRow) => void;
+  readOnly: boolean;
 }) {
   return (
     <div className="px-4 py-4 flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 overflow-x-auto">
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <span className="text-base font-semibold text-stone-800 shrink-0">
-              {employee.name}
-            </span>
-            <span className="text-sm text-stone-500 shrink-0">
-              {getPositionLabel(employee.position)}
-            </span>
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div
+            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-semibold text-sm ${getEmployeeAvatarClass(employee.position, employee.status)}`}
+          >
+            {employee.name.charAt(0)}
+          </div>
+          <div className="min-w-0">
+            <div className="text-base font-semibold text-stone-800 truncate">{employee.name}</div>
+            <div className="text-sm text-stone-500">{getPositionLabel(employee.position)}</div>
           </div>
         </div>
-        <StatusBadge status={employee.status} />
+        <StatusBadge employee={employee} />
       </div>
 
       <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2 text-sm">
@@ -211,14 +235,16 @@ function EmployeeCard({
         <dd className="text-stone-600">{formatHireDate(employee.hireDate)}</dd>
       </dl>
 
-      <button
-        type="button"
-        onClick={() => onEdit(employee)}
-        className="btn-secondary w-full touch-target justify-center"
-      >
-        <Pencil size={16} />
-        수정
-      </button>
+      {!readOnly && (
+        <button
+          type="button"
+          onClick={() => onEdit(employee)}
+          className="btn-secondary w-full touch-target justify-center"
+        >
+          <Pencil size={16} />
+          수정
+        </button>
+      )}
     </div>
   );
 }
@@ -254,29 +280,42 @@ function SummaryCard({
 function EmployeeRowItem({
   employee,
   onEdit,
+  readOnly,
 }: {
   employee: EmployeeRow;
   onEdit: (employee: EmployeeRow) => void;
+  readOnly: boolean;
 }) {
   return (
     <tr>
-      <td className="font-medium text-stone-800 whitespace-nowrap">{employee.name}</td>
+      <td className="font-medium text-stone-800 whitespace-nowrap">
+        <div className="flex items-center gap-2.5">
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${getEmployeeAvatarClass(employee.position, employee.status)}`}
+          >
+            {employee.name.charAt(0)}
+          </div>
+          {employee.name}
+        </div>
+      </td>
       <td className="whitespace-nowrap">{getPositionLabel(employee.position)}</td>
       <td>₩{employee.hourlyWage.toLocaleString('ko-KR')}</td>
       <td className="text-stone-500">{employee.phone || '—'}</td>
       <td className="text-stone-500">{formatHireDate(employee.hireDate)}</td>
       <td>
-        <StatusBadge status={employee.status} />
+        <StatusBadge employee={employee} />
       </td>
-      <td>
-        <button
-          onClick={() => onEdit(employee)}
-          className="btn-ghost p-2"
-          title="수정"
-        >
-          <Pencil size={15} />
-        </button>
-      </td>
+      {!readOnly && (
+        <td>
+          <button
+            onClick={() => onEdit(employee)}
+            className="btn-ghost p-2"
+            title="수정"
+          >
+            <Pencil size={15} />
+          </button>
+        </td>
+      )}
     </tr>
   );
 }

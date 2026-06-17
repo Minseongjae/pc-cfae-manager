@@ -3,16 +3,19 @@ import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import type { PayrollPeriod, PayrollSummary } from '@/lib/payroll';
 import { formatPayrollCurrency } from '@/lib/payroll';
 import { usePayrollAdjustments } from '@/contexts/PayrollAdjustmentsContext';
+import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { hasAnyAdjustment } from '@/lib/payrollAdjustments';
 
 interface PayrollTableProps {
   summary: PayrollSummary;
   period: PayrollPeriod;
+  readOnly?: boolean;
 }
 
-export function PayrollTable({ summary, period }: PayrollTableProps) {
+export function PayrollTable({ summary, period, readOnly = false }: PayrollTableProps) {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const { openEdit } = usePayrollAdjustments();
+  const { requireUnlock } = useAdminLockContext();
 
   if (summary.entries.length === 0) {
     return (
@@ -37,7 +40,7 @@ export function PayrollTable({ summary, period }: PayrollTableProps) {
             <th className="text-right">자동 급여</th>
             <th className="text-right">조정</th>
             <th className="text-right pr-2">최종 급여</th>
-            <th className="w-12" />
+            {!readOnly && <th className="w-12" />}
           </tr>
         </thead>
         <tbody>
@@ -129,23 +132,27 @@ export function PayrollTable({ summary, period }: PayrollTableProps) {
                   <td className="text-right pr-2 font-semibold text-stone-800">
                     {formatPayrollCurrency(entry.finalPay)}
                   </td>
+                  {!readOnly && (
                   <td className="pr-4">
                     <button
                       type="button"
                       className="btn-ghost p-1.5 opacity-60 group-hover:opacity-100"
                       title="급여 조정"
                       onClick={() =>
-                        openEdit({
-                          entry,
-                          period,
-                          periodKey: summary.periodKey,
-                          periodLabel: summary.periodLabel,
-                        })
+                        requireUnlock(() =>
+                          openEdit({
+                            entry,
+                            period,
+                            periodKey: summary.periodKey,
+                            periodLabel: summary.periodLabel,
+                          })
+                        )
                       }
                     >
                       <Pencil size={14} />
                     </button>
                   </td>
+                  )}
                 </tr>
                 {isExpanded &&
                   entry.shifts.map((shift) => (
@@ -207,7 +214,7 @@ export function PayrollTable({ summary, period }: PayrollTableProps) {
             <td className="py-4 pr-2 text-right text-amber-800 text-base">
               {formatPayrollCurrency(summary.totalFinalPay)}
             </td>
-            <td />
+            {!readOnly && <td />}
           </tr>
         </tfoot>
       </table>

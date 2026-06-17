@@ -4,6 +4,7 @@ import { EmployeesProvider } from '@/contexts/EmployeesContext';
 import { DragGuardProvider } from '@/contexts/DragGuardContext';
 import { DataSyncProvider } from '@/contexts/DataSyncContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { AdminLockProvider } from '@/contexts/AdminLockContext';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { SchedulePage } from '@/pages/SchedulePage';
 import { EmployeesPage } from '@/pages/EmployeesPage';
@@ -37,6 +38,7 @@ export default function App() {
     <DragGuardProvider>
       <DataSyncProvider>
         <SettingsProvider>
+          <AdminLockProvider>
           <EmployeesProvider>
             <ActualWorkProvider>
               <PayrollAdjustmentsProvider>
@@ -46,6 +48,7 @@ export default function App() {
               </PayrollAdjustmentsProvider>
             </ActualWorkProvider>
           </EmployeesProvider>
+          </AdminLockProvider>
         </SettingsProvider>
       </DataSyncProvider>
     </DragGuardProvider>

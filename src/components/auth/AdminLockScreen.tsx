@@ -17,15 +17,21 @@ export function AdminLockScreen({
 }: AdminLockScreenProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (event: FormEvent) => {
+  const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (unlockAdmin(password)) {
+    setSubmitting(true);
+    const result = await unlockAdmin(password);
+    setSubmitting(false);
+
+    if (result.ok) {
       setError('');
       onUnlock?.();
       return;
     }
-    setError('비밀번호가 올바르지 않습니다.');
+
+    setError(result.message);
     setPassword('');
   };
 
@@ -75,15 +81,15 @@ export function AdminLockScreen({
               </p>
             )}
 
-            <button type="submit" className="btn-primary w-full">
-              확인
+            <button type="submit" disabled={submitting} className="btn-primary w-full">
+              {submitting ? '확인 중…' : '확인'}
             </button>
           </form>
 
           <p className="text-[11px] text-stone-400 text-center leading-relaxed">
             {description}
             <br />
-            브라우저를 닫으면 다시 잠깁니다.
+            잠금 상태는 새로고침 후에도 유지됩니다.
           </p>
         </div>
       </div>
