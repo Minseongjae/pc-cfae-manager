@@ -142,16 +142,6 @@ export async function readSyncToken(): Promise<string> {
   return payload.syncToken;
 }
 
-async function readRows(sheets: sheets_v4.Sheets, tabName: string): Promise<string[][]> {
-  const range = `${tabName}!A:Z`;
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId: sheetId(),
-    range,
-  });
-  const values = response.data.values ?? [];
-  if (values.length <= 1) return [];
-  return values.slice(1).map((row) => row.map((cell) => String(cell ?? '')));
-}
 
 async function writeSheet(
   sheets: sheets_v4.Sheets,
