@@ -102,17 +102,18 @@ async function writeSheet(
   const numericSheetId = await getSheetIdByName(sheets, tabName);
   if (numericSheetId === null) return;
 
-  await sheets.spreadsheets.values.clear({
-    spreadsheetId: sheetId(),
-    range: `${tabName}!A:Z`,
-  });
-
   const values: string[][] = [Array.from(headers), ...rows];
   await sheets.spreadsheets.values.update({
     spreadsheetId: sheetId(),
     range: `${tabName}!A1`,
     valueInputOption: 'RAW',
     requestBody: { values },
+  });
+
+  const trailingStart = values.length + 1;
+  await sheets.spreadsheets.values.clear({
+    spreadsheetId: sheetId(),
+    range: `${tabName}!A${trailingStart}:Z`,
   });
 }
 

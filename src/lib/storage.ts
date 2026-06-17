@@ -94,6 +94,24 @@ function defaultSchoolSchedules(): SchoolSchedule[] {
   ];
 }
 
+function createMinimalSeedData(): AppStorage {
+  const shiftTypes = defaultShiftTypes();
+  const schoolSchedules: SchoolSchedule[] = [];
+  return {
+    version: STORAGE_VERSION,
+    employees: [],
+    shiftTypes,
+    scheduleShifts: [],
+    schoolSchedules,
+    actualWorkRecords: [],
+    payrollAdjustmentRecords: [],
+    inventoryItems: [],
+    purchaseOrders: [],
+    salesRecords: [],
+    appSettings: createDefaultAppSettings(shiftTypes, schoolSchedules),
+  };
+}
+
 function createDefaultData(): AppStorage {
   const shiftTypes = defaultShiftTypes();
   const schoolSchedules = defaultSchoolSchedules();
@@ -181,7 +199,10 @@ export function restoreAppBackup(json: string): AppStorage {
 }
 
 export async function initStorage(): Promise<void> {
-  await initDataStore(createDefaultData());
+  await initDataStore({
+    fallback: createDefaultData(),
+    seed: createMinimalSeedData(),
+  });
 }
 
 export function getEmployees(): EmployeeRow[] {

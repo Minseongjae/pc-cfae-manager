@@ -128,7 +128,16 @@ export function migrateShiftTypes(input: unknown): ShiftType[] {
   if (!Array.isArray(input) || input.length === 0) {
     result = DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
   } else if (isLegacyShiftType(input[0])) {
-    result = DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
+    result = (input as LegacyShiftType[])
+      .map((row, index) => ({
+        id: row.dayType?.trim() || `legacy-${row.id}`,
+        name: row.name.trim() || `근무유형 ${index + 1}`,
+        color: normalizeHexColor(row.color),
+        sortOrder: index,
+        defaultStartTime: row.startTime || '10:00',
+        defaultEndTime: row.endTime || '14:00',
+      }))
+      .map((type, index) => normalizeShiftType(type, index));
   } else if (!isModernShiftType(input[0])) {
     result = DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
   } else {

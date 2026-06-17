@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Sidebar } from './Sidebar';
 import { RightPanel } from './RightPanel';
+import { MobileEmployeeDrawer } from './MobileEmployeeDrawer';
 import { MobileTopBar } from './MobileTopBar';
 import type { PageId } from '@/types';
 
@@ -68,7 +69,12 @@ export function AppLayout({ currentPage, onNavigate, children }: AppLayoutProps)
           >
             {children}
           </main>
-          {isSchedule && <RightPanel className="hidden md:flex" />}
+          {isSchedule && (
+            <>
+              <RightPanel className="hidden md:flex" />
+              <MobileEmployeeDrawer />
+            </>
+          )}
         </div>
       </div>
     </div>

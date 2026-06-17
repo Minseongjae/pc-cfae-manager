@@ -125,10 +125,7 @@ export function SettingsPage() {
             <button
               key={id}
               type="button"
-              onClick={() => {
-                setActive(id);
-                setDraft(settings);
-              }}
+              onClick={() => setActive(id)}
               className={`flex items-center gap-2.5 px-3 py-3 md:py-2.5 rounded-xl text-sm transition-colors touch-nav shrink-0 md:w-full ${
                 active === id
                   ? 'bg-stone-200 text-stone-800 font-medium'

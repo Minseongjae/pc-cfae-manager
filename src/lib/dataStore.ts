@@ -26,11 +26,20 @@ export const SCHEDULES_CHANGED_EVENT = 'schedules-changed';
 
 /** Local backup — written on every change, read when Sheets is unavailable. */
 export const LOCAL_BACKUP_KEY = '1pc-cafe-manager-data';
+const LOCAL_BACKUP_META_KEY = '1pc-cafe-manager-data-meta';
 
 const PUSH_DEBOUNCE_MS = 500;
 const POLL_INTERVAL_MS = 8_000;
 const MAX_PUSH_RETRIES = 6;
+const LOCAL_EDIT_GRACE_MS = 15_000;
 const STORAGE_VERSION = 6;
+
+export interface InitDataStoreOptions {
+  /** Used when normalizing partial backups — never pushed to Sheets as-is. */
+  fallback: AppStorage;
+  /** Used only when remote sheet is empty and no local backup exists. */
+  seed: AppStorage;
+}
 
 export type SyncStatus = 'idle' | 'loading' | 'syncing' | 'error';
 
@@ -57,6 +66,7 @@ let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pushInFlight = false;
 let hasPendingPush = false;
+let lastLocalWriteAt = 0;
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
@@ -100,9 +110,13 @@ export function normalizeAppStorage(raw: Partial<AppStorage>, fallback: AppStora
     payrollAdjustmentRecords: Array.isArray(raw.payrollAdjustmentRecords)
       ? raw.payrollAdjustmentRecords
       : fallback.payrollAdjustmentRecords,
-    inventoryItems: Array.isArray(raw.inventoryItems) ? raw.inventoryItems : [],
-    purchaseOrders: Array.isArray(raw.purchaseOrders) ? raw.purchaseOrders : [],
-    salesRecords: Array.isArray(raw.salesRecords) ? raw.salesRecords : [],
+    inventoryItems: Array.isArray(raw.inventoryItems)
+      ? raw.inventoryItems
+      : fallback.inventoryItems,
+    purchaseOrders: Array.isArray(raw.purchaseOrders)
+      ? raw.purchaseOrders
+      : fallback.purchaseOrders,
+    salesRecords: Array.isArray(raw.salesRecords) ? raw.salesRecords : fallback.salesRecords,
     shiftTypes: appSettings.shiftTypes,
     schoolSchedules: appSettings.schedule.schoolSchedules,
     appSettings,
@@ -141,12 +155,49 @@ export function readLocalBackup(): AppStorage | null {
   }
 }
 
+function readLocalBackupMeta(): { savedAt: number } | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_BACKUP_META_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { savedAt?: number };
+    return typeof parsed.savedAt === 'number' ? { savedAt: parsed.savedAt } : null;
+  } catch {
+    return null;
+  }
+}
+
 function writeLocalBackup(data: AppStorage): void {
   try {
     localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(data));
+    localStorage.setItem(
+      LOCAL_BACKUP_META_KEY,
+      JSON.stringify({ savedAt: Date.now() })
+    );
     setSyncState({ hasLocalBackup: true });
   } catch (error) {
     console.warn('Failed to write local backup:', error);
+  }
+}
+
+function applySettingsMigrations(data: AppStorage): { data: AppStorage; changed: boolean } {
+  const migrated = migrateShiftTypes(data.appSettings.shiftTypes);
+  if (JSON.stringify(migrated) === JSON.stringify(data.appSettings.shiftTypes)) {
+    return { data, changed: false };
+  }
+  const next = syncSettingsDerivedFields({
+    ...data,
+    appSettings: { ...data.appSettings, shiftTypes: migrated },
+  });
+  return { data: enrichAttendance(next), changed: true };
+}
+
+function finalizeCache(data: AppStorage, options: { persistMigration?: boolean } = {}): void {
+  const { data: migrated, changed } = applySettingsMigrations(data);
+  cache = migrated;
+  writeLocalBackup(cache);
+  if (changed && options.persistMigration) {
+    hasPendingPush = true;
+    queuePush();
   }
 }
 
@@ -239,6 +290,7 @@ export function readCache(): AppStorage {
 export function writeCache(data: AppStorage): void {
   const previous = cache;
   cache = enrichAttendance(data);
+  lastLocalWriteAt = Date.now();
   writeLocalBackup(cache);
   hasPendingPush = true;
   queuePush();
@@ -322,6 +374,12 @@ export async function flushPush(): Promise<void> {
 async function pullRemote(): Promise<void> {
   if (pushInFlight || pushTimer || hasPendingPush || !cache) return;
 
+  const recentlyEdited = Date.now() - lastLocalWriteAt < LOCAL_EDIT_GRACE_MS;
+  const meta = readLocalBackupMeta();
+  const recentBackup =
+    meta !== null && Date.now() - meta.savedAt < LOCAL_EDIT_GRACE_MS;
+  if (recentlyEdited || recentBackup) return;
+
   try {
     const remote = await fetchRemoteData();
     if (remote.syncToken === syncState.syncToken) {
@@ -361,7 +419,7 @@ function startPolling(): void {
   }, POLL_INTERVAL_MS);
 }
 
-async function doInitDataStore(defaultData: AppStorage): Promise<void> {
+async function doInitDataStore({ fallback, seed }: InitDataStoreOptions): Promise<void> {
   setSyncState({
     status: 'loading',
     error: null,
@@ -370,10 +428,10 @@ async function doInitDataStore(defaultData: AppStorage): Promise<void> {
 
   const online = await checkApiHealth();
   if (!online) {
-    const fromLocal = loadFromLocalBackup(defaultData);
+    const fromLocal = loadFromLocalBackup(fallback);
     initialized = true;
     if (fromLocal) {
-      cache = fromLocal;
+      finalizeCache(fromLocal, { persistMigration: true });
       setSyncState({
         status: 'error',
         error:
@@ -385,8 +443,7 @@ async function doInitDataStore(defaultData: AppStorage): Promise<void> {
       return;
     }
 
-    cache = enrichAttendance(defaultData);
-    writeLocalBackup(cache);
+    finalizeCache(enrichAttendance(seed));
     setSyncState({
       status: 'error',
       error:
@@ -403,18 +460,17 @@ async function doInitDataStore(defaultData: AppStorage): Promise<void> {
     if (isRemoteEmpty(remote)) {
       const localBackup = readLocalBackup();
       if (localBackup) {
-        const normalized = normalizeAppStorage(localBackup, defaultData);
+        const normalized = normalizeAppStorage(localBackup, fallback);
         const syncToken = await pushRemoteData(toRemotePayload(normalized));
         remote = { ...toRemotePayload(normalized), syncToken };
       } else {
-        const syncToken = await pushRemoteData(toRemotePayload(defaultData));
-        remote = { ...toRemotePayload(defaultData), syncToken };
+        const syncToken = await pushRemoteData(toRemotePayload(seed));
+        remote = { ...toRemotePayload(seed), syncToken };
       }
     }
 
-    cache = enrichAttendance(fromRemotePayload(remote, defaultData));
-    writeLocalBackup(cache);
     initialized = true;
+    finalizeCache(fromRemotePayload(remote, fallback), { persistMigration: true });
     setSyncState({
       status: 'idle',
       syncToken: remote.syncToken,
@@ -425,10 +481,10 @@ async function doInitDataStore(defaultData: AppStorage): Promise<void> {
     });
     startPolling();
   } catch (error) {
-    const fromLocal = loadFromLocalBackup(defaultData);
+    const fromLocal = loadFromLocalBackup(fallback);
     initialized = true;
     if (fromLocal) {
-      cache = fromLocal;
+      finalizeCache(fromLocal, { persistMigration: true });
       setSyncState({
         status: 'error',
         error:
@@ -441,8 +497,7 @@ async function doInitDataStore(defaultData: AppStorage): Promise<void> {
       return;
     }
 
-    cache = enrichAttendance(defaultData);
-    writeLocalBackup(cache);
+    finalizeCache(enrichAttendance(seed));
     setSyncState({
       status: 'error',
       error: error instanceof Error ? error.message : 'Google Sheets 초기화 실패',
@@ -452,10 +507,10 @@ async function doInitDataStore(defaultData: AppStorage): Promise<void> {
   }
 }
 
-export async function initDataStore(defaultData: AppStorage): Promise<void> {
+export async function initDataStore(options: InitDataStoreOptions): Promise<void> {
   if (initialized) return;
   if (!initPromise) {
-    initPromise = doInitDataStore(defaultData).finally(() => {
+    initPromise = doInitDataStore(options).finally(() => {
       initPromise = null;
     });
   }

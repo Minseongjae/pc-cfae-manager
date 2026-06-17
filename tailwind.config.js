@@ -15,9 +15,14 @@ export default {
           from: { transform: 'translateX(-100%)' },
           to: { transform: 'translateX(0)' },
         },
+        'slide-in-up': {
+          from: { transform: 'translateY(100%)' },
+          to: { transform: 'translateY(0)' },
+        },
       },
       animation: {
         'slide-in-left': 'slide-in-left 0.2s ease-out',
+        'slide-in-up': 'slide-in-up 0.25s ease-out',
       },
     },
   },
