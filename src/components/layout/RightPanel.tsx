@@ -6,7 +6,8 @@ import { useEmployees } from '@/contexts/EmployeesContext';
 import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { AdminLockButton } from '@/components/auth/AdminLockButton';
 import { getPositionLabel } from '@/lib/employees';
-import { getEmployeeAvatarClass } from '@/lib/employeeColors';
+import { getEmployeeAvatarStyle } from '@/lib/employeeColors';
+import { useSettings } from '@/contexts/SettingsContext';
 import type { EmployeeRow } from '@/lib/storage';
 
 const PAGE_SIZE = 5;
@@ -16,6 +17,7 @@ export function RightPanel({ className = '' }: { className?: string }) {
   const [page, setPage] = useState(1);
   const [schoolVersion, setSchoolVersion] = useState(0);
   const { employees, openCreate, openEdit } = useEmployees();
+  const { settings } = useSettings();
   const { unlocked, requireUnlock } = useAdminLockContext();
 
   useEffect(() => {
@@ -87,7 +89,8 @@ export function RightPanel({ className = '' }: { className?: string }) {
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold ${getEmployeeAvatarClass(emp.position, emp.status)}`}
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold"
+                    style={getEmployeeAvatarStyle(emp.position, emp.status, settings.positions)}
                   >
                     {emp.name.charAt(0)}
                   </div>

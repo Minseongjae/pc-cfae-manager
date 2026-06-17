@@ -1,6 +1,6 @@
-import type { ShiftType } from '@/types';
-import { migrateShiftTypes } from '@/lib/scheduleShiftTypes';
+import { migrateShiftTypes, normalizeHexColor } from '@/lib/scheduleShiftTypes';
 import type { SchoolSchedule } from '@/lib/appStorage';
+import type { ShiftType } from '@/types';
 import { normalizeOptionalNumber } from '@/lib/numericInput';
 
 export const SETTINGS_CHANGED_EVENT = 'settings-changed';
@@ -46,6 +46,7 @@ export interface PositionDefinition {
   id: string;
   label: string;
   defaultHourlyWage: number;
+  color: string;
 }
 
 export interface ThemeSettings {
@@ -68,10 +69,10 @@ export interface AppSettings {
 }
 
 export const DEFAULT_POSITIONS: PositionDefinition[] = [
-  { id: 'part-time', label: '아르바이트', defaultHourlyWage: 10030 },
-  { id: 'staff', label: '직원', defaultHourlyWage: 10400 },
-  { id: 'manager', label: '매니저', defaultHourlyWage: 11500 },
-  { id: 'store-manager', label: '점장', defaultHourlyWage: 12000 },
+  { id: 'part-time', label: '아르바이트', defaultHourlyWage: 10030, color: '#10B981' },
+  { id: 'staff', label: '직원', defaultHourlyWage: 10400, color: '#3B82F6' },
+  { id: 'manager', label: '매니저', defaultHourlyWage: 11500, color: '#8B5CF6' },
+  { id: 'store-manager', label: '점장', defaultHourlyWage: 12000, color: '#F59E0B' },
 ];
 
 export const DEFAULT_PAYROLL_VALUES = {
@@ -150,10 +151,11 @@ export function migrateAppSettings(
             ? schoolSchedules
             : defaults.schedule.schoolSchedules,
     },
-    positions:
+    positions: migratePositions(
       input.positions?.length && Array.isArray(input.positions)
         ? input.positions
-        : defaults.positions,
+        : defaults.positions
+    ),
     shiftTypes: migrateShiftTypes(
       input.shiftTypes?.length && Array.isArray(input.shiftTypes)
         ? input.shiftTypes
@@ -170,7 +172,23 @@ export function applyThemeSettings(theme: ThemeSettings): void {
   root.dataset.accent = theme.accent;
 }
 
-function resolvePayrollNumber(value: number | null, fallback: number): number {
+const DEFAULT_POSITION_COLORS: Record<string, string> = {
+  'store-manager': '#F59E0B',
+  manager: '#8B5CF6',
+  staff: '#3B82F6',
+  'part-time': '#10B981',
+};
+
+function migratePositions(positions: PositionDefinition[]): PositionDefinition[] {
+  return positions.map((position) => ({
+    ...position,
+    color: position.color
+      ? normalizeHexColor(position.color)
+      : (DEFAULT_POSITION_COLORS[position.id] ?? '#3B82F6'),
+  }));
+}
+
+function resolvePayrollNumber(value: number | null | undefined, fallback: number): number {
   return value ?? fallback;
 }
 

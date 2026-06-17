@@ -463,15 +463,23 @@ function PositionsSection({
   };
 
   return (
-    <SectionCard title="직책 관리" description="직책명 및 기본 시급">
+    <SectionCard title="직책 관리" description="직책명, 기본 시급, 직원 색상을 설정합니다.">
       <div className="space-y-3">
-        <div className="grid grid-cols-[1fr_120px_auto] gap-2 px-1 text-[11px] font-medium text-stone-500">
+        <div className="grid grid-cols-[auto_1fr_120px_auto] gap-2 px-1 text-[11px] font-medium text-stone-500">
+          <span className="w-10">색상</span>
           <span>직책명</span>
           <span>기본 시급</span>
           <span className="w-12" />
         </div>
         {value.map((row, index) => (
-          <div key={row.id} className="grid grid-cols-[1fr_120px_auto] gap-2 items-center">
+          <div key={row.id} className="grid grid-cols-[auto_1fr_120px_auto] gap-2 items-center">
+            <input
+              type="color"
+              className="w-10 h-10 rounded-lg border border-stone-200 cursor-pointer shrink-0"
+              value={row.color || '#3B82F6'}
+              onChange={(e) => update(index, { color: e.target.value })}
+              aria-label={`${row.label || '직책'} 색상`}
+            />
             <input
               type="text"
               className="input-luxury"
@@ -504,6 +512,7 @@ function PositionsSection({
                 id: `custom-${Date.now()}`,
                 label: '',
                 defaultHourlyWage: 10400,
+                color: '#3B82F6',
               },
             ])
           }

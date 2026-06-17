@@ -92,7 +92,7 @@ export function Sidebar({ currentPage, onNavigate, className = '', onClose }: Si
         </div>
         <p className="text-[10px] text-stone-400 text-center px-2 leading-relaxed">
           {unlocked && expiryLabel ? (
-            <>관리자 모드 · {expiryLabel}까지 유지</>
+            <>관리자 모드 · {expiryLabel}까지 유지 (새로고침·브라우저 재시작 후에도 유지)</>
           ) : (
             <>
               <Lock size={10} className="inline mr-1" />

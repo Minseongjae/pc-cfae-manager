@@ -30,6 +30,15 @@ export function InventoryPage() {
 
   const lowStockCount = useMemo(() => items.filter(isLowStock).length, [items]);
 
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      const aLow = isLowStock(a) ? 0 : 1;
+      const bLow = isLowStock(b) ? 0 : 1;
+      if (aLow !== bLow) return aLow - bLow;
+      return a.name.localeCompare(b.name, 'ko');
+    });
+  }, [items]);
+
   const openCreate = () => {
     setEditing(null);
     setForm(emptyForm);
@@ -74,6 +83,20 @@ export function InventoryPage() {
       </PageHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4">
+        {lowStockCount > 0 && (
+          <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 flex items-start gap-3">
+            <AlertTriangle size={18} className="text-rose-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-rose-800">
+                재고 부족 {lowStockCount}개 항목
+              </p>
+              <p className="text-xs text-rose-700 mt-0.5">
+                최소 재고 이하 상품이 상단에 표시됩니다. 발주를 검토해 주세요.
+              </p>
+            </div>
+          </div>
+        )}
+
         {showForm && (
           <div className="card p-4 md:p-5 space-y-3">
             <h3 className="text-sm font-semibold text-stone-700">
@@ -120,8 +143,15 @@ export function InventoryPage() {
           <div className="card p-10 text-center text-sm text-stone-500">등록된 재고가 없습니다.</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-4">
-            {items.map((item) => (
-              <div key={item.id} className="card p-4 md:p-5 space-y-3">
+            {sortedItems.map((item) => {
+              const low = isLowStock(item);
+              return (
+              <div
+                key={item.id}
+                className={`card p-4 md:p-5 space-y-3 ${
+                  low ? 'border-rose-400 bg-rose-50/70 ring-1 ring-rose-200' : ''
+                }`}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <p className="font-semibold text-stone-800 whitespace-nowrap truncate">{item.name}</p>
@@ -155,7 +185,8 @@ export function InventoryPage() {
                   수정
                 </button>
               </div>
-            ))}
+            );
+            })}
           </div>
         )}
       </div>

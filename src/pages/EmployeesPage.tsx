@@ -11,22 +11,33 @@ import {
   type EmployeeStatus,
 } from '@/lib/employees';
 import {
-  EMPLOYEE_COLOR_LABELS,
-  EMPLOYEE_SWATCH_CLASSES,
-  getEmployeeAvatarClass,
-  getEmployeeBadgeClass,
-  getEmployeeColorCategory,
+  getEmployeeAvatarStyle,
+  getEmployeeBadgeStyle,
+  getEmployeeSwatchStyle,
+  resolveEmployeeColor,
 } from '@/lib/employeeColors';
+import { useSettings } from '@/contexts/SettingsContext';
+import type { PositionDefinition } from '@/lib/appSettings';
 import type { EmployeeRow } from '@/lib/storage';
 
-function StatusBadge({ employee }: { employee: EmployeeRow }) {
-  const category = getEmployeeColorCategory(employee.position, employee.status);
-
+function StatusBadge({
+  employee,
+  positions,
+}: {
+  employee: EmployeeRow;
+  positions: PositionDefinition[];
+}) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${getEmployeeBadgeClass(employee.position, employee.status)}`}
+      className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full"
+      style={getEmployeeBadgeStyle(employee.position, employee.status, positions)}
     >
-      <span className={`w-2 h-2 rounded-full border ${EMPLOYEE_SWATCH_CLASSES[category]}`} />
+      <span
+        className="w-2 h-2 rounded-full"
+        style={getEmployeeSwatchStyle(
+          resolveEmployeeColor(employee.position, employee.status, positions)
+        )}
+      />
       {getPositionLabel(employee.position)}
     </span>
   );
@@ -42,6 +53,7 @@ function formatHireDate(date: string): string {
 
 export function EmployeesPage() {
   const { employees, openCreate, openEdit } = useEmployees();
+  const { settings } = useSettings();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EmployeeStatus | 'all'>('all');
 
@@ -83,14 +95,23 @@ export function EmployeesPage() {
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] md:text-xs text-stone-500">
           <span className="font-medium text-stone-600">직원 색상</span>
-          {(['store-manager', 'manager', 'staff', 'part-time', 'off', 'vacation'] as const).map(
-            (category) => (
-              <span key={category} className="inline-flex items-center gap-1.5">
-                <span className={`w-3 h-3 rounded border ${EMPLOYEE_SWATCH_CLASSES[category]}`} />
-                {EMPLOYEE_COLOR_LABELS[category]}
-              </span>
-            )
-          )}
+          {settings.positions.map((position) => (
+            <span key={position.id} className="inline-flex items-center gap-1.5">
+              <span
+                className="w-3 h-3 rounded"
+                style={getEmployeeSwatchStyle(position.color)}
+              />
+              {position.label}
+            </span>
+          ))}
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded" style={getEmployeeSwatchStyle('#9CA3AF')} />
+            휴무
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="w-3 h-3 rounded" style={getEmployeeSwatchStyle('#F97316')} />
+            휴가
+          </span>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
@@ -149,6 +170,7 @@ export function EmployeesPage() {
                   <EmployeeCard
                     key={emp.id}
                     employee={emp}
+                    positions={settings.positions}
                     onEdit={handleEdit}
                   />
                 ))}
@@ -172,6 +194,7 @@ export function EmployeesPage() {
                       <EmployeeRowItem
                         key={emp.id}
                         employee={emp}
+                        positions={settings.positions}
                         onEdit={handleEdit}
                       />
                     ))}
@@ -188,9 +211,11 @@ export function EmployeesPage() {
 
 function EmployeeCard({
   employee,
+  positions,
   onEdit,
 }: {
   employee: EmployeeRow;
+  positions: PositionDefinition[];
   onEdit: (employee: EmployeeRow) => void;
 }) {
   return (
@@ -198,7 +223,8 @@ function EmployeeCard({
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
           <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-semibold text-sm ${getEmployeeAvatarClass(employee.position, employee.status)}`}
+            className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 font-semibold text-sm"
+            style={getEmployeeAvatarStyle(employee.position, employee.status, positions)}
           >
             {employee.name.charAt(0)}
           </div>
@@ -207,7 +233,7 @@ function EmployeeCard({
             <div className="text-sm text-stone-500">{getPositionLabel(employee.position)}</div>
           </div>
         </div>
-        <StatusBadge employee={employee} />
+        <StatusBadge employee={employee} positions={positions} />
       </div>
 
       <dl className="grid grid-cols-[72px_1fr] gap-x-3 gap-y-2 text-sm">
@@ -263,9 +289,11 @@ function SummaryCard({
 
 function EmployeeRowItem({
   employee,
+  positions,
   onEdit,
 }: {
   employee: EmployeeRow;
+  positions: PositionDefinition[];
   onEdit: (employee: EmployeeRow) => void;
 }) {
   return (
@@ -273,7 +301,8 @@ function EmployeeRowItem({
       <td className="font-medium text-stone-800 whitespace-nowrap">
         <div className="flex items-center gap-2.5">
           <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold ${getEmployeeAvatarClass(employee.position, employee.status)}`}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold"
+            style={getEmployeeAvatarStyle(employee.position, employee.status, positions)}
           >
             {employee.name.charAt(0)}
           </div>
@@ -285,7 +314,7 @@ function EmployeeRowItem({
       <td className="text-stone-500">{employee.phone || '—'}</td>
       <td className="text-stone-500">{formatHireDate(employee.hireDate)}</td>
       <td>
-        <StatusBadge employee={employee} />
+        <StatusBadge employee={employee} positions={positions} />
       </td>
       <td>
         <button

@@ -3,8 +3,10 @@ import type { ShiftType } from '@/types';
 /** Legacy row ids used in seed schedule data */
 export const LEGACY_SHIFT_ROW_LABELS: Record<string, string> = {
   morning: '오전',
-  afternoon1: '오후 1~4',
-  afternoon2: '오후 1~4',
+  afternoon1: '오후 1',
+  afternoon2: '오후 2',
+  afternoon3: '오후 3',
+  afternoon4: '오후 4',
   middle: '미들',
   night: '야간 1~2',
   training: '교육 1~3',
@@ -21,7 +23,7 @@ export const DEFAULT_SCHEDULE_SHIFT_TYPES: ShiftType[] = [
   },
   {
     id: 'afternoon1',
-    name: '오후 1~4',
+    name: '오후 1',
     color: '#10B981',
     sortOrder: 1,
     defaultStartTime: '14:00',
@@ -29,17 +31,33 @@ export const DEFAULT_SCHEDULE_SHIFT_TYPES: ShiftType[] = [
   },
   {
     id: 'afternoon2',
-    name: '오후 1~4',
+    name: '오후 2',
     color: '#06B6D4',
     sortOrder: 2,
     defaultStartTime: '15:00',
     defaultEndTime: '19:00',
   },
   {
+    id: 'afternoon3',
+    name: '오후 3',
+    color: '#14B8A6',
+    sortOrder: 3,
+    defaultStartTime: '16:00',
+    defaultEndTime: '20:00',
+  },
+  {
+    id: 'afternoon4',
+    name: '오후 4',
+    color: '#0EA5E9',
+    sortOrder: 4,
+    defaultStartTime: '17:00',
+    defaultEndTime: '21:00',
+  },
+  {
     id: 'middle',
     name: '미들',
     color: '#8B5CF6',
-    sortOrder: 3,
+    sortOrder: 5,
     defaultStartTime: '18:00',
     defaultEndTime: '22:00',
   },
@@ -47,7 +65,7 @@ export const DEFAULT_SCHEDULE_SHIFT_TYPES: ShiftType[] = [
     id: 'night',
     name: '야간 1~2',
     color: '#6366F1',
-    sortOrder: 4,
+    sortOrder: 6,
     defaultStartTime: '22:00',
     defaultEndTime: '06:00',
   },
@@ -55,7 +73,7 @@ export const DEFAULT_SCHEDULE_SHIFT_TYPES: ShiftType[] = [
     id: 'training',
     name: '교육 1~3',
     color: '#F97316',
-    sortOrder: 5,
+    sortOrder: 7,
     defaultStartTime: '16:00',
     defaultEndTime: '18:00',
   },
@@ -105,22 +123,54 @@ export function normalizeHexColor(color: string): string {
 }
 
 export function migrateShiftTypes(input: unknown): ShiftType[] {
+  let result: ShiftType[];
+
   if (!Array.isArray(input) || input.length === 0) {
-    return DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
+    result = DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
+  } else if (isLegacyShiftType(input[0])) {
+    result = DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
+  } else if (!isModernShiftType(input[0])) {
+    result = DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
+  } else {
+    result = [...(input as ShiftType[])]
+      .map((type, index) => normalizeShiftType(type, index))
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((type, index) => ({ ...type, sortOrder: index }));
   }
 
-  if (isLegacyShiftType(input[0])) {
-    return DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
+  return ensureAfternoonShiftRows(result);
+}
+
+const AFTERNOON_SHIFT_DEFAULTS: Omit<ShiftType, 'sortOrder'>[] = [
+  {
+    id: 'afternoon3',
+    name: '오후 3',
+    color: '#14B8A6',
+    defaultStartTime: '16:00',
+    defaultEndTime: '20:00',
+  },
+  {
+    id: 'afternoon4',
+    name: '오후 4',
+    color: '#0EA5E9',
+    defaultStartTime: '17:00',
+    defaultEndTime: '21:00',
+  },
+];
+
+function ensureAfternoonShiftRows(types: ShiftType[]): ShiftType[] {
+  const known = new Set(types.map((type) => type.id));
+  const merged = [...types];
+  let order = merged.length;
+
+  for (const row of AFTERNOON_SHIFT_DEFAULTS) {
+    if (known.has(row.id)) continue;
+    merged.push({ ...row, sortOrder: order });
+    known.add(row.id);
+    order += 1;
   }
 
-  if (!isModernShiftType(input[0])) {
-    return DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
-  }
-
-  return [...(input as ShiftType[])]
-    .map((type, index) => normalizeShiftType(type, index))
-    .sort((a, b) => a.sortOrder - b.sortOrder)
-    .map((type, index) => ({ ...type, sortOrder: index }));
+  return sortShiftTypes(merged);
 }
 
 export function createShiftTypeId(name: string): string {
