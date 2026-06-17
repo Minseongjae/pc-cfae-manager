@@ -9,15 +9,11 @@ import {
 import { PayrollSummaryCards } from '@/components/payroll/PayrollSummaryCards';
 import { PayrollTable } from '@/components/payroll/PayrollTable';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { AdminLockBanner } from '@/components/auth/AdminLockBanner';
-import { AdminLockButton } from '@/components/auth/AdminLockButton';
-import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useActualWorkVersion } from '@/contexts/ActualWorkContext';
 import { usePayrollAdjustments } from '@/contexts/PayrollAdjustmentsContext';
 
 export function PayrollPage() {
-  const { unlocked } = useAdminLockContext();
   const { version: employeeVersion } = useEmployees();
   const actualWorkVersion = useActualWorkVersion();
   const { version: adjustmentVersion } = usePayrollAdjustments();
@@ -100,7 +96,6 @@ export function PayrollPage() {
         subtitle="실근무 기준 자동 계산 · 수동 조정 반영"
       >
         <div className="flex items-center gap-2 flex-wrap">
-          <AdminLockButton size="sm" />
           <div className="segment-control">
             {(['daily', 'weekly', 'monthly'] as PayrollPeriod[]).map((p) => (
               <button
@@ -131,10 +126,6 @@ export function PayrollPage() {
       </PageHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4 md:space-y-6">
-        {!unlocked && (
-          <AdminLockBanner message="잠금 상태입니다. 급여는 조회만 가능하며, 조정은 비밀번호 입력 후 가능합니다." />
-        )}
-
         <div className="card px-4 py-3 md:px-5 md:py-4 bg-stone-50 border-stone-200">
           <p className="text-sm text-stone-700">
             <span className="font-semibold">시급 × 근무시간</span>으로 자동 급여를 계산하고,
@@ -143,7 +134,7 @@ export function PayrollPage() {
         </div>
         <PayrollSummaryCards summary={summary} />
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <PayrollTable summary={summary} period={period} readOnly={!unlocked} />
+          <PayrollTable summary={summary} period={period} />
         </div>
       </div>
     </div>

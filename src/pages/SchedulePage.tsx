@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { ScheduleHeader, type ViewMode } from '@/components/schedule/ScheduleHeader';
 import { ScheduleCalendar } from '@/components/schedule/ScheduleCalendar';
 import { ShiftModal } from '@/components/schedule/ShiftModal';
-import { AdminLockBanner } from '@/components/auth/AdminLockBanner';
 import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { useScheduleShifts } from '@/hooks/useScheduleShifts';
 import {
@@ -85,7 +84,9 @@ export function SchedulePage() {
     <div className="flex flex-col h-full overflow-hidden">
       {!unlocked && (
         <div className="px-4 pt-3 md:px-6 shrink-0">
-          <AdminLockBanner message="잠금 상태입니다. 근무표는 조회만 가능하며, 수정은 비밀번호 입력 후 가능합니다." />
+          <p className="text-xs text-stone-500 bg-stone-100/80 border border-stone-200 rounded-xl px-3 py-2">
+            근무표는 조회만 가능합니다. 수정하려면 관리자 인증이 필요합니다.
+          </p>
         </div>
       )}
 

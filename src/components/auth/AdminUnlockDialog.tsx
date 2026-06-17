@@ -8,13 +8,15 @@ interface AdminUnlockDialogProps {
   onClose: () => void;
   onUnlocked?: () => void;
   title?: string;
+  sessionHours?: number;
 }
 
 export function AdminUnlockDialog({
   open,
   onClose,
   onUnlocked,
-  title = '관리자 잠금 해제',
+  title = '관리자 인증',
+  sessionHours = 8,
 }: AdminUnlockDialogProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -55,7 +57,7 @@ export function AdminUnlockDialog({
           </div>
           <div>
             <h2 className="text-base font-semibold text-stone-800">{title}</h2>
-            <p className="text-xs text-stone-500 mt-0.5">수정 기능을 사용하려면 비밀번호를 입력하세요</p>
+            <p className="text-xs text-stone-500 mt-0.5">관리자 비밀번호를 입력하세요</p>
           </div>
         </div>
 
@@ -90,10 +92,14 @@ export function AdminUnlockDialog({
               취소
             </button>
             <button type="submit" disabled={submitting} className="btn-primary flex-1">
-              {submitting ? '확인 중…' : '잠금 해제'}
+              {submitting ? '확인 중…' : '관리자 모드 시작'}
             </button>
           </div>
         </form>
+
+        <p className="text-[11px] text-stone-400 text-center leading-relaxed">
+          인증 후 {sessionHours}시간 동안 관리자 모드가 유지됩니다.
+        </p>
       </div>
     </ModalOverlay>
   );

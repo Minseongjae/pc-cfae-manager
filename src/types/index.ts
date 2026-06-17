@@ -51,6 +51,7 @@ export interface ScheduleDay {
 export type PageId =
   | 'dashboard'
   | 'schedule'
+  | 'notices'
   | 'employees'
   | 'payroll'
   | 'actual-work'

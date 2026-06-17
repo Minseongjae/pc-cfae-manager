@@ -1,7 +1,8 @@
 import { hashPassword } from '@/lib/appSettings';
 import { getAppSettings } from '@/lib/storage';
 
-const LOCK_STATE_KEY = '1pc-cafe-admin-locked';
+const SESSION_KEY = '1pc-cafe-admin-session';
+const SESSION_HOURS = 8;
 
 export const ADMIN_LOCK_CHANGED_EVENT = 'admin-lock-changed';
 
@@ -13,22 +14,67 @@ export interface UnlockResult {
   message: string;
 }
 
+interface AdminSession {
+  unlockedAt: string;
+  expiresAt: string;
+}
+
 function dispatchLockChanged(): void {
   window.dispatchEvent(new Event(ADMIN_LOCK_CHANGED_EVENT));
 }
 
-export function isAdminLocked(): boolean {
+function readSession(): AdminSession | null {
   try {
-    const stored = localStorage.getItem(LOCK_STATE_KEY);
-    if (stored === null) return true;
-    return stored === 'true';
+    const raw = localStorage.getItem(SESSION_KEY);
+    if (!raw) return null;
+    const session = JSON.parse(raw) as AdminSession;
+    if (!session.unlockedAt || !session.expiresAt) return null;
+    return session;
   } catch {
-    return true;
+    return null;
   }
 }
 
+function writeSession(session: AdminSession | null): void {
+  try {
+    if (!session) {
+      localStorage.removeItem(SESSION_KEY);
+      return;
+    }
+    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function isSessionValid(session: AdminSession | null): boolean {
+  if (!session) return false;
+  return Date.now() < new Date(session.expiresAt).getTime();
+}
+
+export function getAdminSession(): AdminSession | null {
+  const session = readSession();
+  if (!isSessionValid(session)) {
+    if (session) {
+      writeSession(null);
+      dispatchLockChanged();
+    }
+    return null;
+  }
+  return session;
+}
+
+export function getAdminSessionExpiresAt(): Date | null {
+  const session = getAdminSession();
+  return session ? new Date(session.expiresAt) : null;
+}
+
+export function isAdminLocked(): boolean {
+  return getAdminSession() === null;
+}
+
 export function isAdminUnlocked(): boolean {
-  return !isAdminLocked();
+  return getAdminSession() !== null;
 }
 
 /** @deprecated Use isAdminUnlocked */
@@ -48,11 +94,12 @@ export async function unlockAdmin(password: string): Promise<UnlockResult> {
     return { ok: false, message: '비밀번호가 올바르지 않습니다.' };
   }
 
-  try {
-    localStorage.setItem(LOCK_STATE_KEY, 'false');
-  } catch {
-    return { ok: false, message: '잠금 해제 상태를 저장할 수 없습니다.' };
-  }
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + SESSION_HOURS * 60 * 60 * 1000);
+  writeSession({
+    unlockedAt: now.toISOString(),
+    expiresAt: expiresAt.toISOString(),
+  });
 
   dispatchLockChanged();
   return { ok: true, message: '' };
@@ -64,11 +111,7 @@ export async function unlockPayroll(password: string): Promise<UnlockResult> {
 }
 
 export function lockAdmin(): void {
-  try {
-    localStorage.setItem(LOCK_STATE_KEY, 'true');
-  } catch {
-    // ignore storage errors
-  }
+  writeSession(null);
   dispatchLockChanged();
 }
 
@@ -78,3 +121,5 @@ export const lockPayroll = lockAdmin;
 export function hasAdminPasswordConfigured(): boolean {
   return Boolean(getAppSettings().security.passwordHash);
 }
+
+export const ADMIN_SESSION_HOURS = SESSION_HOURS;

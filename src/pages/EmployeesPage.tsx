@@ -3,9 +3,6 @@ import { format, parseISO } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Plus, Search, Pencil } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
-import { AdminLockBanner } from '@/components/auth/AdminLockBanner';
-import { AdminLockButton } from '@/components/auth/AdminLockButton';
-import { useAdminLockContext } from '@/contexts/AdminLockContext';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import {
   getPositionLabel,
@@ -44,7 +41,6 @@ function formatHireDate(date: string): string {
 }
 
 export function EmployeesPage() {
-  const { unlocked, requireUnlock } = useAdminLockContext();
   const { employees, openCreate, openEdit } = useEmployees();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<EmployeeStatus | 'all'>('all');
@@ -71,25 +67,19 @@ export function EmployeesPage() {
     };
   }, [employees]);
 
-  const handleCreate = () => requireUnlock(() => openCreate());
-  const handleEdit = (employee: EmployeeRow) => requireUnlock(() => openEdit(employee));
+  const handleCreate = () => openCreate();
+  const handleEdit = (employee: EmployeeRow) => openEdit(employee);
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <PageHeader title="직원 관리" subtitle={`총 ${counts.total}명 등록`}>
-        <div className="flex items-center gap-2">
-          <AdminLockButton size="sm" />
-          {unlocked && (
-            <button className="btn-primary" onClick={handleCreate}>
-              <Plus size={16} strokeWidth={2} />
-              직원 추가
-            </button>
-          )}
-        </div>
+        <button className="btn-primary" onClick={handleCreate}>
+          <Plus size={16} strokeWidth={2} />
+          직원 추가
+        </button>
       </PageHeader>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4 md:space-y-5">
-        {!unlocked && <AdminLockBanner />}
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] md:text-xs text-stone-500">
           <span className="font-medium text-stone-600">직원 색상</span>
@@ -160,7 +150,6 @@ export function EmployeesPage() {
                     key={emp.id}
                     employee={emp}
                     onEdit={handleEdit}
-                    readOnly={!unlocked}
                   />
                 ))}
               </div>
@@ -175,7 +164,7 @@ export function EmployeesPage() {
                       <th>전화번호</th>
                       <th>입사일</th>
                       <th>상태</th>
-                      {unlocked && <th className="w-16" />}
+                      <th className="w-16" />
                     </tr>
                   </thead>
                   <tbody>
@@ -184,7 +173,6 @@ export function EmployeesPage() {
                         key={emp.id}
                         employee={emp}
                         onEdit={handleEdit}
-                        readOnly={!unlocked}
                       />
                     ))}
                   </tbody>
@@ -201,11 +189,9 @@ export function EmployeesPage() {
 function EmployeeCard({
   employee,
   onEdit,
-  readOnly,
 }: {
   employee: EmployeeRow;
   onEdit: (employee: EmployeeRow) => void;
-  readOnly: boolean;
 }) {
   return (
     <div className="px-4 py-4 flex flex-col gap-3">
@@ -235,16 +221,14 @@ function EmployeeCard({
         <dd className="text-stone-600">{formatHireDate(employee.hireDate)}</dd>
       </dl>
 
-      {!readOnly && (
-        <button
-          type="button"
-          onClick={() => onEdit(employee)}
-          className="btn-secondary w-full touch-target justify-center"
-        >
-          <Pencil size={16} />
-          수정
-        </button>
-      )}
+      <button
+        type="button"
+        onClick={() => onEdit(employee)}
+        className="btn-secondary w-full touch-target justify-center"
+      >
+        <Pencil size={16} />
+        수정
+      </button>
     </div>
   );
 }
@@ -280,11 +264,9 @@ function SummaryCard({
 function EmployeeRowItem({
   employee,
   onEdit,
-  readOnly,
 }: {
   employee: EmployeeRow;
   onEdit: (employee: EmployeeRow) => void;
-  readOnly: boolean;
 }) {
   return (
     <tr>
@@ -305,17 +287,15 @@ function EmployeeRowItem({
       <td>
         <StatusBadge employee={employee} />
       </td>
-      {!readOnly && (
-        <td>
-          <button
-            onClick={() => onEdit(employee)}
-            className="btn-ghost p-2"
-            title="수정"
-          >
-            <Pencil size={15} />
-          </button>
-        </td>
-      )}
+      <td>
+        <button
+          onClick={() => onEdit(employee)}
+          className="btn-ghost p-2"
+          title="수정"
+        >
+          <Pencil size={15} />
+        </button>
+      </td>
     </tr>
   );
 }

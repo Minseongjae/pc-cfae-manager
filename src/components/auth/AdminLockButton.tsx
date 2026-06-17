@@ -1,4 +1,4 @@
-import { Lock, LockOpen } from 'lucide-react';
+import { LogOut, Lock } from 'lucide-react';
 import { useAdminLockContext } from '@/contexts/AdminLockContext';
 
 interface AdminLockButtonProps {
@@ -12,7 +12,7 @@ export function AdminLockButton({
   size = 'md',
   showLabel = true,
 }: AdminLockButtonProps) {
-  const { unlocked, lock, openUnlockDialog } = useAdminLockContext();
+  const { unlocked, logout, openUnlockDialog } = useAdminLockContext();
 
   const iconSize = size === 'sm' ? 14 : 16;
   const btnClass =
@@ -24,12 +24,12 @@ export function AdminLockButton({
     return (
       <button
         type="button"
-        onClick={lock}
+        onClick={logout}
         className={`${btnClass} ${className}`}
-        title="관리자 잠금"
+        title="관리자 로그아웃"
       >
-        <LockOpen size={iconSize} />
-        {showLabel && '잠금'}
+        <LogOut size={iconSize} />
+        {showLabel && '로그아웃'}
       </button>
     );
   }
@@ -39,10 +39,10 @@ export function AdminLockButton({
       type="button"
       onClick={() => openUnlockDialog()}
       className={`${btnClass} ${className}`}
-      title="관리자 잠금 해제"
+      title="관리자 인증"
     >
       <Lock size={iconSize} />
-      {showLabel && '잠금 해제'}
+      {showLabel && '관리자 인증'}
     </button>
   );
 }
