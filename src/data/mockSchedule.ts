@@ -26,15 +26,6 @@ export const shiftRows: ShiftRow[] = [
   { id: 'training', label: '교육 1~3' },
 ];
 
-export const shiftCardColors: Record<ShiftRowId, string> = {
-  morning: 'bg-amber-50 border-amber-200/40 text-stone-700',
-  afternoon1: 'bg-emerald-50 border-emerald-200/40 text-stone-700',
-  afternoon2: 'bg-sky-50 border-sky-200/40 text-stone-700',
-  middle: 'bg-indigo-50 border-indigo-200/40 text-stone-700',
-  night: 'bg-violet-50 border-violet-200/40 text-stone-700',
-  training: 'bg-orange-50 border-orange-200/40 text-stone-700',
-};
-
 function shift(
   year: number,
   month: number,

@@ -10,3 +10,4 @@ credentials/
 !credentials/.gitkeep
 *.db
 *.log
+.vercel

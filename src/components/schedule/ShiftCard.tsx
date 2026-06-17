@@ -1,7 +1,9 @@
-import { useRef, useCallback } from 'react';
+import { useRef, useCallback, useMemo } from 'react';
 import { useDragGuard } from '@/contexts/DragGuardContext';
 import type { ScheduleShift } from '@/data/mockSchedule';
-import { shiftCardColors } from '@/data/mockSchedule';
+import { getShiftCardColorClass } from '@/lib/shiftDisplay';
+import { findEmployeeByShiftName } from '@/lib/payroll';
+import { useEmployees } from '@/contexts/EmployeesContext';
 import { GripHorizontal } from 'lucide-react';
 
 interface ShiftCardProps {
@@ -24,7 +26,11 @@ export function ShiftCard({
   onEdit,
 }: ShiftCardProps) {
   const { beginDrag, endDrag } = useDragGuard();
-  const colorClass = shiftCardColors[shift.rowId];
+  const { employees } = useEmployees();
+  const colorClass = useMemo(() => {
+    const employee = findEmployeeByShiftName(employees, shift.name);
+    return getShiftCardColorClass(shift, employee?.status);
+  }, [employees, shift]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
   const didDragRef = useRef(false);
 
@@ -98,11 +104,11 @@ export function ShiftCard({
         }}
         title="드래그하여 이동"
       />
-      <div className="font-semibold text-stone-800 text-sm tracking-tight pr-4">{shift.name}</div>
-      <div className="text-stone-700 mt-1 font-medium">
+      <div className="font-semibold text-sm tracking-tight pr-4 truncate">{shift.name}</div>
+      <div className="mt-1 font-medium opacity-90 text-[11px] md:text-xs">
         {shift.startTime} – {shift.endTime}
       </div>
-      <div className="text-stone-500 text-[11px] mt-0.5">{shift.duration}h</div>
+      <div className="opacity-75 text-[10px] md:text-[11px] mt-0.5">{shift.duration}h</div>
 
       <div
         onMouseDown={handleResizeStart}
