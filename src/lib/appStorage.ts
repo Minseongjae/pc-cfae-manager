@@ -29,6 +29,35 @@ export interface SchoolSchedule {
   schedule: string;
 }
 
+export type PurchaseOrderStatus = 'scheduled' | 'ordered' | 'received';
+
+export interface InventoryItem {
+  id: string;
+  name: string;
+  currentStock: number;
+  minStock: number;
+  expiryDate: string;
+  updatedAt?: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  productName: string;
+  quantity: number;
+  status: PurchaseOrderStatus;
+  scheduledDate: string;
+  note: string;
+  updatedAt?: string;
+}
+
+export interface SalesRecord {
+  id: string;
+  date: string;
+  amount: number;
+  note: string;
+  updatedAt?: string;
+}
+
 export interface AppStorage {
   version?: number;
   employees: EmployeeRow[];
@@ -37,6 +66,9 @@ export interface AppStorage {
   schoolSchedules: SchoolSchedule[];
   actualWorkRecords: ActualWorkRecord[];
   payrollAdjustmentRecords: PayrollAdjustmentRecord[];
+  inventoryItems: InventoryItem[];
+  purchaseOrders: PurchaseOrder[];
+  salesRecords: SalesRecord[];
   appSettings: AppSettings;
 }
 

@@ -35,11 +35,28 @@ import type {
   AppStorage,
   EmployeeInput,
   EmployeeRow,
+  InventoryItem,
+  PurchaseOrder,
+  PurchaseOrderStatus,
+  SalesRecord,
   SchoolSchedule,
   ShiftInput,
 } from '@/lib/appStorage';
+import { isLowStock, INVENTORY_CHANGED_EVENT } from '@/lib/inventory';
+import { PURCHASE_ORDERS_CHANGED_EVENT } from '@/lib/purchaseOrders';
+import { dateKey, SALES_CHANGED_EVENT } from '@/lib/sales';
+import { getMonthlyPayroll } from '@/lib/payroll';
 
-export type { AppStorage, EmployeeInput, EmployeeRow, SchoolSchedule, ShiftInput } from '@/lib/appStorage';
+export type {
+  AppStorage,
+  EmployeeInput,
+  EmployeeRow,
+  InventoryItem,
+  PurchaseOrder,
+  SalesRecord,
+  SchoolSchedule,
+  ShiftInput,
+} from '@/lib/appStorage';
 
 const STORAGE_VERSION = 5;
 
@@ -126,6 +143,9 @@ function createDefaultData(): AppStorage {
     schoolSchedules,
     actualWorkRecords: [],
     payrollAdjustmentRecords: [],
+    inventoryItems: [],
+    purchaseOrders: [],
+    salesRecords: [],
     appSettings: createDefaultAppSettings(shiftTypes, schoolSchedules),
   };
 }
@@ -141,10 +161,16 @@ function syncSettingsDerivedFields(data: AppStorage): AppStorage {
 function readStorage(): AppStorage {
   try {
     const data = readCache();
-    if (data.appSettings) return syncSettingsDerivedFields(data);
-    return syncSettingsDerivedFields({
+    const normalized = {
       ...data,
-      appSettings: migrateAppSettings(undefined, data.shiftTypes, data.schoolSchedules),
+      inventoryItems: data.inventoryItems ?? [],
+      purchaseOrders: data.purchaseOrders ?? [],
+      salesRecords: data.salesRecords ?? [],
+    };
+    if (normalized.appSettings) return syncSettingsDerivedFields(normalized);
+    return syncSettingsDerivedFields({
+      ...normalized,
+      appSettings: migrateAppSettings(undefined, normalized.shiftTypes, normalized.schoolSchedules),
     });
   } catch {
     return createDefaultData();
@@ -706,6 +732,137 @@ function toEmployee(emp: EmployeeRow): Employee {
   };
 }
 
+function createId(prefix: string): string {
+  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function getInventoryItems(): InventoryItem[] {
+  return readStorage().inventoryItems;
+}
+
+export function saveInventoryItem(
+  input: Omit<InventoryItem, 'id' | 'updatedAt'> & { id?: string }
+): InventoryItem {
+  const data = readStorage();
+  const now = new Date().toISOString();
+  const item: InventoryItem = {
+    id: input.id ?? createId('inv'),
+    name: input.name.trim(),
+    currentStock: Math.max(0, input.currentStock),
+    minStock: Math.max(0, input.minStock),
+    expiryDate: input.expiryDate,
+    updatedAt: now,
+  };
+  const index = data.inventoryItems.findIndex((row) => row.id === item.id);
+  if (index >= 0) data.inventoryItems[index] = item;
+  else data.inventoryItems.push(item);
+  writeStorage(data);
+  window.dispatchEvent(new Event(INVENTORY_CHANGED_EVENT));
+  return item;
+}
+
+export function deleteInventoryItem(id: string): void {
+  const data = readStorage();
+  data.inventoryItems = data.inventoryItems.filter((item) => item.id !== id);
+  writeStorage(data);
+  window.dispatchEvent(new Event(INVENTORY_CHANGED_EVENT));
+}
+
+export function getPurchaseOrders(): PurchaseOrder[] {
+  return readStorage().purchaseOrders;
+}
+
+export function savePurchaseOrder(
+  input: Omit<PurchaseOrder, 'id' | 'updatedAt'> & { id?: string }
+): PurchaseOrder {
+  const data = readStorage();
+  const now = new Date().toISOString();
+  const order: PurchaseOrder = {
+    id: input.id ?? createId('po'),
+    productName: input.productName.trim(),
+    quantity: Math.max(1, input.quantity),
+    status: input.status,
+    scheduledDate: input.scheduledDate,
+    note: input.note,
+    updatedAt: now,
+  };
+  const index = data.purchaseOrders.findIndex((row) => row.id === order.id);
+  if (index >= 0) data.purchaseOrders[index] = order;
+  else data.purchaseOrders.push(order);
+  writeStorage(data);
+  window.dispatchEvent(new Event(PURCHASE_ORDERS_CHANGED_EVENT));
+  return order;
+}
+
+export function updatePurchaseOrderStatus(id: string, status: PurchaseOrderStatus): void {
+  const data = readStorage();
+  const order = data.purchaseOrders.find((row) => row.id === id);
+  if (!order) return;
+  order.status = status;
+  order.updatedAt = new Date().toISOString();
+  writeStorage(data);
+  window.dispatchEvent(new Event(PURCHASE_ORDERS_CHANGED_EVENT));
+}
+
+export function deletePurchaseOrder(id: string): void {
+  const data = readStorage();
+  data.purchaseOrders = data.purchaseOrders.filter((order) => order.id !== id);
+  writeStorage(data);
+  window.dispatchEvent(new Event(PURCHASE_ORDERS_CHANGED_EVENT));
+}
+
+export function getSalesRecords(): SalesRecord[] {
+  return readStorage().salesRecords;
+}
+
+export function saveSalesRecord(
+  input: Omit<SalesRecord, 'id' | 'updatedAt'> & { id?: string }
+): SalesRecord {
+  const data = readStorage();
+  const now = new Date().toISOString();
+  const record: SalesRecord = {
+    id: input.id ?? createId('sale'),
+    date: input.date,
+    amount: Math.max(0, input.amount),
+    note: input.note,
+    updatedAt: now,
+  };
+  const index = data.salesRecords.findIndex((row) => row.id === record.id);
+  if (index >= 0) data.salesRecords[index] = record;
+  else data.salesRecords.push(record);
+  writeStorage(data);
+  window.dispatchEvent(new Event(SALES_CHANGED_EVENT));
+  return record;
+}
+
+export function deleteSalesRecord(id: string): void {
+  const data = readStorage();
+  data.salesRecords = data.salesRecords.filter((record) => record.id !== id);
+  writeStorage(data);
+  window.dispatchEvent(new Event(SALES_CHANGED_EVENT));
+}
+
+export function getMonthlySalesTotal(year: number, month: number): number {
+  const key = `${year}-${String(month).padStart(2, '0')}`;
+  return getSalesRecords()
+    .filter((record) => record.date.startsWith(key))
+    .reduce((sum, record) => sum + record.amount, 0);
+}
+
+export function getMonthlySalesBreakdown(year: number, month: number): Array<{ day: number; amount: number }> {
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const totals = new Map<number, number>();
+  for (let day = 1; day <= daysInMonth; day += 1) totals.set(day, 0);
+  const prefix = `${year}-${String(month).padStart(2, '0')}`;
+  for (const record of getSalesRecords()) {
+    if (!record.date.startsWith(prefix)) continue;
+    const day = Number(record.date.slice(8, 10));
+    if (!Number.isFinite(day)) continue;
+    totals.set(day, (totals.get(day) ?? 0) + record.amount);
+  }
+  return [...totals.entries()].map(([day, amount]) => ({ day, amount }));
+}
+
 export function getDashboardStats(): DashboardStats {
   const data = readStorage();
   const today = new Date();
@@ -750,6 +907,18 @@ export function getDashboardStats(): DashboardStats {
   const averagePayrollPerEmployee =
     totalEmployees > 0 ? Math.round(totalPayroll / totalEmployees) : 0;
 
+  const todayStr = dateKey(today);
+  const todayAttendance = data.actualWorkRecords.filter(
+    (record) =>
+      record.date === todayStr &&
+      (record.status === 'working' || record.status === 'completed' || record.actualStart)
+  ).length;
+
+  const lowStockCount = data.inventoryItems.filter(isLowStock).length;
+  const monthPayroll = getMonthlyPayroll(todayYear, todayMonth);
+  const monthLaborCost = monthPayroll.totalFinalPay;
+  const monthSales = getMonthlySalesTotal(todayYear, todayMonth);
+
   return {
     totalEmployees,
     totalPayroll: Math.round(totalPayroll),
@@ -759,5 +928,9 @@ export function getDashboardStats(): DashboardStats {
     employeesOffToday: offToday.length,
     workingToday,
     offToday,
+    todayAttendance,
+    lowStockCount,
+    monthLaborCost,
+    monthSales,
   };
 }

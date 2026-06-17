@@ -1,4 +1,4 @@
-import type { AppStorage } from '@/lib/appStorage';
+import type { AppStorage, PurchaseOrder } from '@/lib/appStorage';
 import type { AppSettings } from '@/lib/appSettings';
 import { migrateAppSettings } from '@/lib/appSettings';
 import type { PayrollAdjustmentRecord } from '@/lib/payrollAdjustments';
@@ -51,6 +51,30 @@ export interface RemoteDataPayload {
   }>;
   schoolSchedules: AppStorage['schoolSchedules'];
   appSettings: AppSettings;
+  inventoryItems: Array<{
+    id: string;
+    name: string;
+    currentStock: number;
+    minStock: number;
+    expiryDate: string;
+    updatedAt: string;
+  }>;
+  purchaseOrders: Array<{
+    id: string;
+    productName: string;
+    quantity: number;
+    status: PurchaseOrder['status'];
+    scheduledDate: string;
+    note: string;
+    updatedAt: string;
+  }>;
+  salesRecords: Array<{
+    id: string;
+    date: string;
+    amount: number;
+    note: string;
+    updatedAt: string;
+  }>;
   syncToken: string;
 }
 
@@ -156,6 +180,30 @@ export function toRemotePayload(data: AppStorage): Omit<RemoteDataPayload, 'sync
     })),
     schoolSchedules: data.appSettings.schedule.schoolSchedules,
     appSettings: data.appSettings,
+    inventoryItems: data.inventoryItems.map((item) => ({
+      id: item.id,
+      name: item.name,
+      currentStock: item.currentStock,
+      minStock: item.minStock,
+      expiryDate: item.expiryDate,
+      updatedAt: item.updatedAt || now,
+    })),
+    purchaseOrders: data.purchaseOrders.map((order) => ({
+      id: order.id,
+      productName: order.productName,
+      quantity: order.quantity,
+      status: order.status,
+      scheduledDate: order.scheduledDate,
+      note: order.note,
+      updatedAt: order.updatedAt || now,
+    })),
+    salesRecords: data.salesRecords.map((record) => ({
+      id: record.id,
+      date: record.date,
+      amount: record.amount,
+      note: record.note,
+      updatedAt: record.updatedAt || now,
+    })),
   };
 }
 
@@ -224,6 +272,30 @@ export function fromRemotePayload(
       period: record.period as PayrollAdjustmentRecord['period'],
       periodKey: record.periodKey,
       adjustments: record.adjustments,
+      updatedAt: record.updatedAt,
+    })),
+    inventoryItems: (remote.inventoryItems ?? []).map((item) => ({
+      id: item.id,
+      name: item.name,
+      currentStock: item.currentStock,
+      minStock: item.minStock,
+      expiryDate: item.expiryDate,
+      updatedAt: item.updatedAt,
+    })),
+    purchaseOrders: (remote.purchaseOrders ?? []).map((order) => ({
+      id: order.id,
+      productName: order.productName,
+      quantity: order.quantity,
+      status: order.status,
+      scheduledDate: order.scheduledDate,
+      note: order.note,
+      updatedAt: order.updatedAt,
+    })),
+    salesRecords: (remote.salesRecords ?? []).map((record) => ({
+      id: record.id,
+      date: record.date,
+      amount: record.amount,
+      note: record.note,
       updatedAt: record.updatedAt,
     })),
     appSettings,

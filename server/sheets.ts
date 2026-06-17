@@ -11,10 +11,16 @@ import {
   computeSyncToken,
   employeeFromRow,
   employeeToRow,
+  inventoryFromRow,
+  inventoryToRow,
   parseSchoolSchedules,
   parseSettingsRows,
   payrollFromRow,
   payrollToRow,
+  purchaseOrderFromRow,
+  purchaseOrderToRow,
+  salesFromRow,
+  salesToRow,
   scheduleFromRow,
   scheduleToRow,
 } from './mappers.js';
@@ -147,19 +153,33 @@ export async function initializeSheets(): Promise<void> {
     ['school_schedules', '[]', new Date().toISOString()],
     ['app_settings', '{}', new Date().toISOString()],
   ]);
+  await ensureSheetWithHeaders(sheets, SHEET_NAMES.inventory, HEADERS.inventory);
+  await ensureSheetWithHeaders(sheets, SHEET_NAMES.purchaseOrders, HEADERS.purchaseOrders);
+  await ensureSheetWithHeaders(sheets, SHEET_NAMES.sales, HEADERS.sales);
 }
 
 export async function readAllData(): Promise<AppDataPayload> {
   const sheets = createSheetsClient();
 
-  const [employeeRows, scheduleRows, attendanceRows, payrollRows, settingsRows] =
-    await Promise.all([
-      readRows(sheets, SHEET_NAMES.employees),
-      readRows(sheets, SHEET_NAMES.schedules),
-      readRows(sheets, SHEET_NAMES.attendance),
-      readRows(sheets, SHEET_NAMES.payroll),
-      readRows(sheets, SHEET_NAMES.settings),
-    ]);
+  const [
+    employeeRows,
+    scheduleRows,
+    attendanceRows,
+    payrollRows,
+    settingsRows,
+    inventoryRows,
+    purchaseRows,
+    salesRows,
+  ] = await Promise.all([
+    readRows(sheets, SHEET_NAMES.employees),
+    readRows(sheets, SHEET_NAMES.schedules),
+    readRows(sheets, SHEET_NAMES.attendance),
+    readRows(sheets, SHEET_NAMES.payroll),
+    readRows(sheets, SHEET_NAMES.settings),
+    readRows(sheets, SHEET_NAMES.inventory),
+    readRows(sheets, SHEET_NAMES.purchaseOrders),
+    readRows(sheets, SHEET_NAMES.sales),
+  ]);
 
   const employees = employeeRows
     .map((row) => employeeFromRow([...HEADERS.employees], row))
@@ -175,6 +195,18 @@ export async function readAllData(): Promise<AppDataPayload> {
 
   const payrollAdjustmentRecords = payrollRows
     .map((row) => payrollFromRow([...HEADERS.payroll], row))
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const inventoryItems = inventoryRows
+    .map((row) => inventoryFromRow([...HEADERS.inventory], row))
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const purchaseOrders = purchaseRows
+    .map((row) => purchaseOrderFromRow([...HEADERS.purchaseOrders], row))
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const salesRecords = salesRows
+    .map((row) => salesFromRow([...HEADERS.sales], row))
     .filter((row): row is NonNullable<typeof row> => row !== null);
 
   const schoolSchedulesSetting = settingsRows.find((row) => row[0] === 'school_schedules');
@@ -194,6 +226,9 @@ export async function readAllData(): Promise<AppDataPayload> {
     payrollAdjustmentRecords,
     schoolSchedules: schoolSchedules.length ? schoolSchedules : legacySchoolSchedules,
     appSettings,
+    inventoryItems,
+    purchaseOrders,
+    salesRecords,
   };
 
   return {
@@ -219,6 +254,18 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
     updatedAt: record.updatedAt || now,
   }));
   const payrollAdjustmentRecords = payload.payrollAdjustmentRecords.map((record) => ({
+    ...record,
+    updatedAt: record.updatedAt || now,
+  }));
+  const inventoryItems = payload.inventoryItems.map((item) => ({
+    ...item,
+    updatedAt: item.updatedAt || now,
+  }));
+  const purchaseOrders = payload.purchaseOrders.map((order) => ({
+    ...order,
+    updatedAt: order.updatedAt || now,
+  }));
+  const salesRecords = payload.salesRecords.map((record) => ({
     ...record,
     updatedAt: record.updatedAt || now,
   }));
@@ -257,6 +304,19 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
         appSettings: payload.appSettings,
       })
     ),
+    writeSheet(
+      sheets,
+      SHEET_NAMES.inventory,
+      HEADERS.inventory,
+      inventoryItems.map(inventoryToRow)
+    ),
+    writeSheet(
+      sheets,
+      SHEET_NAMES.purchaseOrders,
+      HEADERS.purchaseOrders,
+      purchaseOrders.map(purchaseOrderToRow)
+    ),
+    writeSheet(sheets, SHEET_NAMES.sales, HEADERS.sales, salesRecords.map(salesToRow)),
   ]);
 
   return computeSyncToken({
@@ -266,6 +326,9 @@ export async function writeAllData(payload: Omit<AppDataPayload, 'syncToken'>): 
     payrollAdjustmentRecords,
     schoolSchedules: payload.schoolSchedules,
     appSettings: payload.appSettings,
+    inventoryItems,
+    purchaseOrders,
+    salesRecords,
   });
 }
 

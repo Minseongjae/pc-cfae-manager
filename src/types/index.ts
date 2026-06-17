@@ -30,6 +30,10 @@ export interface DashboardStats {
   employeesOffToday: number;
   workingToday: Employee[];
   offToday: Employee[];
+  todayAttendance: number;
+  lowStockCount: number;
+  monthLaborCost: number;
+  monthSales: number;
 }
 
 export interface ScheduleDay {
@@ -50,4 +54,8 @@ export type PageId =
   | 'employees'
   | 'payroll'
   | 'actual-work'
+  | 'inventory'
+  | 'purchase-orders'
+  | 'sales'
   | 'settings';
+

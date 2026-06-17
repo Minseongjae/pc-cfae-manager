@@ -3,8 +3,12 @@ import type {
   AppSettingsPayload,
   AttendanceRecord,
   EmployeeRow,
+  InventoryItem,
   PayrollAdjustmentRecord,
   PayrollAdjustments,
+  PurchaseOrder,
+  PurchaseOrderStatus,
+  SalesRecord,
   ScheduleShift,
   SchoolSchedule,
 } from './types.js';
@@ -183,6 +187,9 @@ export function computeSyncToken(payload: Omit<AppDataPayload, 'syncToken'>): st
     payrollAdjustmentRecords: payload.payrollAdjustmentRecords,
     schoolSchedules: payload.schoolSchedules,
     appSettings: payload.appSettings,
+    inventoryItems: payload.inventoryItems,
+    purchaseOrders: payload.purchaseOrders,
+    salesRecords: payload.salesRecords,
   });
 
   let hash = 0;
@@ -190,7 +197,7 @@ export function computeSyncToken(payload: Omit<AppDataPayload, 'syncToken'>): st
     hash = (hash * 31 + blob.charCodeAt(i)) | 0;
   }
 
-  return `${payload.employees.length}:${payload.scheduleShifts.length}:${payload.actualWorkRecords.length}:${payload.payrollAdjustmentRecords.length}:${hash}`;
+  return `${payload.employees.length}:${payload.scheduleShifts.length}:${payload.actualWorkRecords.length}:${payload.payrollAdjustmentRecords.length}:${payload.inventoryItems.length}:${payload.purchaseOrders.length}:${payload.salesRecords.length}:${hash}`;
 }
 
 export function parseJsonSetting<T>(value: string, fallback: T): T {
@@ -241,4 +248,81 @@ export function parseSchoolSchedules(value: string): SchoolSchedule[] {
   } catch {
     return [];
   }
+}
+
+export function inventoryFromRow(headers: string[], row: string[]): InventoryItem | null {
+  const raw = rowToObject(headers, row);
+  if (!raw.id || !raw.name) return null;
+  return {
+    id: raw.id,
+    name: raw.name,
+    currentStock: num(raw.current_stock),
+    minStock: num(raw.min_stock),
+    expiryDate: raw.expiry_date || '',
+    updatedAt: raw.updated_at || new Date(0).toISOString(),
+  };
+}
+
+export function inventoryToRow(item: InventoryItem): string[] {
+  return [
+    item.id,
+    item.name,
+    String(item.currentStock),
+    String(item.minStock),
+    item.expiryDate,
+    item.updatedAt,
+  ];
+}
+
+const PURCHASE_STATUSES: PurchaseOrderStatus[] = ['scheduled', 'ordered', 'received'];
+
+export function purchaseOrderFromRow(headers: string[], row: string[]): PurchaseOrder | null {
+  const raw = rowToObject(headers, row);
+  if (!raw.id || !raw.product_name) return null;
+  const status = PURCHASE_STATUSES.includes(raw.status as PurchaseOrderStatus)
+    ? (raw.status as PurchaseOrderStatus)
+    : 'scheduled';
+  return {
+    id: raw.id,
+    productName: raw.product_name,
+    quantity: num(raw.quantity, 1),
+    status,
+    scheduledDate: raw.scheduled_date || '',
+    note: raw.note || '',
+    updatedAt: raw.updated_at || new Date(0).toISOString(),
+  };
+}
+
+export function purchaseOrderToRow(order: PurchaseOrder): string[] {
+  return [
+    order.id,
+    order.productName,
+    String(order.quantity),
+    order.status,
+    order.scheduledDate,
+    order.note,
+    order.updatedAt,
+  ];
+}
+
+export function salesFromRow(headers: string[], row: string[]): SalesRecord | null {
+  const raw = rowToObject(headers, row);
+  if (!raw.id || !raw.date) return null;
+  return {
+    id: raw.id,
+    date: raw.date,
+    amount: num(raw.amount),
+    note: raw.note || '',
+    updatedAt: raw.updated_at || new Date(0).toISOString(),
+  };
+}
+
+export function salesToRow(record: SalesRecord): string[] {
+  return [
+    record.id,
+    record.date,
+    String(record.amount),
+    record.note,
+    record.updatedAt,
+  ];
 }

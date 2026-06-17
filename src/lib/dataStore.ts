@@ -11,6 +11,9 @@ import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
 import { ACTUAL_WORK_CHANGED_EVENT } from '@/lib/actualWork';
 import { PAYROLL_ADJUSTMENTS_CHANGED_EVENT } from '@/lib/payrollAdjustments';
 import { SETTINGS_CHANGED_EVENT, applyThemeSettings } from '@/lib/appSettings';
+import { INVENTORY_CHANGED_EVENT } from '@/lib/inventory';
+import { PURCHASE_ORDERS_CHANGED_EVENT } from '@/lib/purchaseOrders';
+import { SALES_CHANGED_EVENT } from '@/lib/sales';
 
 export const DATA_SYNC_CHANGED_EVENT = 'data-sync-changed';
 export const SCHEDULES_CHANGED_EVENT = 'schedules-changed';
@@ -52,8 +55,11 @@ function notifySyncChanged(): void {
 
 function enrichAttendance(data: AppStorage): AppStorage {
   const wageByEmployee = new Map(data.employees.map((e) => [e.id, e.hourlyWage]));
-  const enriched = {
+  const enriched: AppStorage = {
     ...data,
+    inventoryItems: data.inventoryItems ?? [],
+    purchaseOrders: data.purchaseOrders ?? [],
+    salesRecords: data.salesRecords ?? [],
     actualWorkRecords: data.actualWorkRecords.map((record) =>
       enrichActualWorkRecord(record, wageByEmployee.get(record.employeeId) ?? 10400)
     ),
@@ -89,6 +95,9 @@ function dispatchDataEvents(previous: AppStorage | null, next: AppStorage): void
     window.dispatchEvent(new Event(SCHEDULES_CHANGED_EVENT));
     window.dispatchEvent(new Event(ACTUAL_WORK_CHANGED_EVENT));
     window.dispatchEvent(new Event(PAYROLL_ADJUSTMENTS_CHANGED_EVENT));
+    window.dispatchEvent(new Event(INVENTORY_CHANGED_EVENT));
+    window.dispatchEvent(new Event(PURCHASE_ORDERS_CHANGED_EVENT));
+    window.dispatchEvent(new Event(SALES_CHANGED_EVENT));
     return;
   }
 
@@ -110,6 +119,15 @@ function dispatchDataEvents(previous: AppStorage | null, next: AppStorage): void
   if (JSON.stringify(previous.appSettings) !== JSON.stringify(next.appSettings)) {
     window.dispatchEvent(new Event(SETTINGS_CHANGED_EVENT));
     applyThemeSettings(next.appSettings.theme);
+  }
+  if (JSON.stringify(previous.inventoryItems) !== JSON.stringify(next.inventoryItems)) {
+    window.dispatchEvent(new Event(INVENTORY_CHANGED_EVENT));
+  }
+  if (JSON.stringify(previous.purchaseOrders) !== JSON.stringify(next.purchaseOrders)) {
+    window.dispatchEvent(new Event(PURCHASE_ORDERS_CHANGED_EVENT));
+  }
+  if (JSON.stringify(previous.salesRecords) !== JSON.stringify(next.salesRecords)) {
+    window.dispatchEvent(new Event(SALES_CHANGED_EVENT));
   }
 }
 

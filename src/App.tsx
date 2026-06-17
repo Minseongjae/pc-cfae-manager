@@ -12,6 +12,9 @@ import { ActualWorkProvider } from '@/contexts/ActualWorkContext';
 import { PayrollAdjustmentsProvider } from '@/contexts/PayrollAdjustmentsContext';
 import { ActualWorkPage } from '@/pages/ActualWorkPage';
 import { SettingsPage } from '@/pages/SettingsPage';
+import { InventoryPage } from '@/pages/InventoryPage';
+import { PurchaseOrdersPage } from '@/pages/PurchaseOrdersPage';
+import { SalesPage } from '@/pages/SalesPage';
 import type { PageId } from '@/types';
 
 const pages: Record<PageId, React.ComponentType> = {
@@ -20,6 +23,9 @@ const pages: Record<PageId, React.ComponentType> = {
   employees: EmployeesPage,
   payroll: PayrollPage,
   'actual-work': ActualWorkPage,
+  inventory: InventoryPage,
+  'purchase-orders': PurchaseOrdersPage,
+  sales: SalesPage,
   settings: SettingsPage,
 };
 

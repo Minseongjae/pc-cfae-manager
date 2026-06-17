@@ -8,6 +8,9 @@ import {
   Lock,
   Coffee,
   X,
+  Package,
+  ClipboardList,
+  Banknote,
 } from 'lucide-react';
 import type { PageId } from '@/types';
 import { SyncStatusBadge } from '@/components/layout/SyncStatusBadge';
@@ -21,11 +24,14 @@ interface NavItem {
 }
 
 const navItems: NavItem[] = [
+  { id: 'dashboard', label: '대시보드', icon: <LayoutDashboard size={18} strokeWidth={1.75} /> },
   { id: 'schedule', label: '근무 스케줄', icon: <CalendarDays size={18} strokeWidth={1.75} /> },
   { id: 'payroll', label: '급여 관리', icon: <Wallet size={18} strokeWidth={1.75} /> },
   { id: 'employees', label: '직원 관리', icon: <Users size={18} strokeWidth={1.75} /> },
   { id: 'actual-work', label: '실근무 관리', icon: <ClipboardCheck size={18} strokeWidth={1.75} /> },
-  { id: 'dashboard', label: '대시보드', icon: <LayoutDashboard size={18} strokeWidth={1.75} /> },
+  { id: 'inventory', label: '재고 관리', icon: <Package size={18} strokeWidth={1.75} /> },
+  { id: 'purchase-orders', label: '발주 관리', icon: <ClipboardList size={18} strokeWidth={1.75} /> },
+  { id: 'sales', label: '매출 관리', icon: <Banknote size={18} strokeWidth={1.75} /> },
   { id: 'settings', label: '설정', icon: <Settings size={18} strokeWidth={1.75} /> },
 ];
 

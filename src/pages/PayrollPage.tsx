@@ -137,7 +137,13 @@ export function PayrollPage() {
         </div>
       </PageHeader>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4 md:space-y-6">
+        <div className="card px-4 py-3 md:px-5 md:py-4 bg-stone-50 border-stone-200">
+          <p className="text-sm text-stone-700">
+            <span className="font-semibold">시급 × 근무시간</span>으로 자동 급여를 계산하고,
+            조정 항목을 반영해 <span className="font-semibold">월급(최종 급여)</span>을 산출합니다.
+          </p>
+        </div>
         <PayrollSummaryCards summary={summary} />
         <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
           <PayrollTable summary={summary} period={period} />

@@ -4,6 +4,9 @@ export const SHEET_NAMES = {
   attendance: 'Attendance',
   payroll: 'Payroll',
   settings: 'Settings',
+  inventory: 'Inventory',
+  purchaseOrders: 'PurchaseOrders',
+  sales: 'Sales',
 } as const;
 
 export const HEADERS = {
@@ -59,4 +62,22 @@ export const HEADERS = {
     'updated_at',
   ],
   settings: ['key', 'value', 'updated_at'],
+  inventory: [
+    'id',
+    'name',
+    'current_stock',
+    'min_stock',
+    'expiry_date',
+    'updated_at',
+  ],
+  purchaseOrders: [
+    'id',
+    'product_name',
+    'quantity',
+    'status',
+    'scheduled_date',
+    'note',
+    'updated_at',
+  ],
+  sales: ['id', 'date', 'amount', 'note', 'updated_at'],
 } as const;

@@ -2,11 +2,14 @@ import { Menu, Coffee } from 'lucide-react';
 import type { PageId } from '@/types';
 
 const PAGE_TITLES: Record<PageId, string> = {
+  dashboard: '대시보드',
   schedule: '근무 스케줄',
   payroll: '급여 관리',
   employees: '직원 관리',
   'actual-work': '실근무 관리',
-  dashboard: '대시보드',
+  inventory: '재고 관리',
+  'purchase-orders': '발주 관리',
+  sales: '매출 관리',
   settings: '설정',
 };
 
