@@ -24,7 +24,7 @@ import {
 } from '@/lib/payrollAdjustments';
 
 import type { DashboardStats, Employee, ShiftType } from '@/types';
-import { initDataStore, readCache, writeCache } from '@/lib/dataStore';
+import { initDataStore, normalizeAppStorage, readCache, readLocalBackup, writeCache } from '@/lib/dataStore';
 import {
   createDefaultAppSettings,
   migrateAppSettings,
@@ -135,7 +135,11 @@ function readStorage(): AppStorage {
       appSettings: migrateAppSettings(undefined, normalized.shiftTypes, normalized.schoolSchedules),
     });
   } catch {
-    return createDefaultData();
+    const backup = readLocalBackup();
+    if (backup) {
+      return syncSettingsDerivedFields(normalizeAppStorage(backup, createDefaultData()));
+    }
+    throw new Error('Data store is not initialized');
   }
 }
 
@@ -166,12 +170,7 @@ export function exportAppBackup(): string {
 
 export function restoreAppBackup(json: string): AppStorage {
   const parsed = JSON.parse(json) as AppStorage;
-  const defaults = createDefaultData();
-  const restored: AppStorage = {
-    ...defaults,
-    ...parsed,
-    appSettings: migrateAppSettingsFromStorage(parsed, defaults),
-  };
+  const restored = normalizeAppStorage(parsed, createDefaultData());
   writeStorage(restored);
   notifySettingsChanged();
   notifyEmployeesChanged();
@@ -179,17 +178,6 @@ export function restoreAppBackup(json: string): AppStorage {
   window.dispatchEvent(new Event(ACTUAL_WORK_CHANGED_EVENT));
   window.dispatchEvent(new Event(PAYROLL_ADJUSTMENTS_CHANGED_EVENT));
   return readStorage();
-}
-
-function migrateAppSettingsFromStorage(parsed: AppStorage, defaults: AppStorage): AppSettings {
-  const rawShiftTypes = parsed.appSettings?.shiftTypes ?? parsed.shiftTypes ?? defaults.shiftTypes;
-  return migrateAppSettings(
-    parsed.appSettings
-      ? { ...parsed.appSettings, shiftTypes: migrateShiftTypes(rawShiftTypes) }
-      : parsed.appSettings,
-    migrateShiftTypes(rawShiftTypes),
-    parsed.schoolSchedules ?? defaults.schoolSchedules
-  );
 }
 
 export async function initStorage(): Promise<void> {

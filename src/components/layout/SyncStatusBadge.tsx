@@ -2,7 +2,7 @@ import { Cloud, CloudOff, Loader2, RefreshCw } from 'lucide-react';
 import { useDataSync } from '@/contexts/DataSyncContext';
 
 export function SyncStatusBadge() {
-  const { status, isOnline, error, lastSyncAt, forceSync } = useDataSync();
+  const { status, isOnline, error, lastSyncAt, hasLocalBackup, forceSync } = useDataSync();
 
   const label =
     status === 'loading'
@@ -61,6 +61,11 @@ export function SyncStatusBadge() {
         </div>
         {error && (
           <p className="text-[10px] text-rose-600 mt-2 leading-relaxed">{error}</p>
+        )}
+        {!isOnline && hasLocalBackup && (
+          <p className="text-[10px] text-stone-500 mt-2 leading-relaxed">
+            로컬 백업에 저장됨 — 연결되면 자동 동기화됩니다.
+          </p>
         )}
       </div>
     </div>

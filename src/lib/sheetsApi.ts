@@ -1,6 +1,7 @@
 import type { AppStorage, PurchaseOrder } from '@/lib/appStorage';
 import type { AppSettings } from '@/lib/appSettings';
 import { migrateAppSettings } from '@/lib/appSettings';
+import { migrateShiftTypes } from '@/lib/scheduleShiftTypes';
 import type { PayrollAdjustmentRecord } from '@/lib/payrollAdjustments';
 import type { ActualWorkRecord } from '@/lib/actualWork';
 
@@ -211,16 +212,17 @@ export function fromRemotePayload(
   remote: RemoteDataPayload,
   defaults: AppStorage
 ): AppStorage {
-  const shiftTypes = defaults.shiftTypes;
-  const schoolSchedules = remote.schoolSchedules;
-  const appSettings = migrateAppSettings(
-    remote.appSettings,
-    shiftTypes,
-    schoolSchedules
+  const shiftTypes = migrateShiftTypes(
+    remote.appSettings?.shiftTypes ?? defaults.appSettings.shiftTypes
   );
+  const schoolSchedules =
+    remote.appSettings?.schedule?.schoolSchedules ??
+    remote.schoolSchedules ??
+    defaults.appSettings.schedule.schoolSchedules;
+  const appSettings = migrateAppSettings(remote.appSettings, shiftTypes, schoolSchedules);
 
   return {
-    version: 5,
+    version: 6,
     employees: remote.employees.map((employee) => ({
       id: employee.id,
       name: employee.name,

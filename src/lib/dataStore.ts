@@ -5,25 +5,32 @@ import {
   fromRemotePayload,
   pushRemoteData,
   toRemotePayload,
+  type RemoteDataPayload,
 } from '@/lib/sheetsApi';
 import { enrichActualWorkRecord } from '@/lib/actualWork';
 import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
 import { ACTUAL_WORK_CHANGED_EVENT } from '@/lib/actualWork';
 import { PAYROLL_ADJUSTMENTS_CHANGED_EVENT } from '@/lib/payrollAdjustments';
-import { SETTINGS_CHANGED_EVENT, applyThemeSettings } from '@/lib/appSettings';
+import {
+  SETTINGS_CHANGED_EVENT,
+  applyThemeSettings,
+  migrateAppSettings,
+} from '@/lib/appSettings';
 import { INVENTORY_CHANGED_EVENT } from '@/lib/inventory';
 import { PURCHASE_ORDERS_CHANGED_EVENT } from '@/lib/purchaseOrders';
 import { SALES_CHANGED_EVENT } from '@/lib/sales';
+import { migrateShiftTypes } from '@/lib/scheduleShiftTypes';
 
 export const DATA_SYNC_CHANGED_EVENT = 'data-sync-changed';
 export const SCHEDULES_CHANGED_EVENT = 'schedules-changed';
 
-/** One-time migration from old localStorage only — never used as primary storage. */
-const LEGACY_MIGRATION_KEY = '1pc-cafe-manager-data';
+/** Local backup — written on every change, read when Sheets is unavailable. */
+export const LOCAL_BACKUP_KEY = '1pc-cafe-manager-data';
 
 const PUSH_DEBOUNCE_MS = 500;
 const POLL_INTERVAL_MS = 8_000;
 const MAX_PUSH_RETRIES = 6;
+const STORAGE_VERSION = 6;
 
 export type SyncStatus = 'idle' | 'loading' | 'syncing' | 'error';
 
@@ -33,6 +40,7 @@ export interface SyncState {
   lastSyncAt: string | null;
   syncToken: string | null;
   isOnline: boolean;
+  hasLocalBackup: boolean;
 }
 
 let cache: AppStorage | null = null;
@@ -42,15 +50,63 @@ let syncState: SyncState = {
   lastSyncAt: null,
   syncToken: null,
   isOnline: false,
+  hasLocalBackup: false,
 };
 let pushTimer: ReturnType<typeof setTimeout> | null = null;
 let retryTimer: ReturnType<typeof setTimeout> | null = null;
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let pushInFlight = false;
+let hasPendingPush = false;
 let initialized = false;
+let initPromise: Promise<void> | null = null;
 
 function notifySyncChanged(): void {
   window.dispatchEvent(new Event(DATA_SYNC_CHANGED_EVENT));
+}
+
+function syncSettingsDerivedFields(data: AppStorage): AppStorage {
+  return {
+    ...data,
+    shiftTypes: data.appSettings.shiftTypes,
+    schoolSchedules: data.appSettings.schedule.schoolSchedules,
+  };
+}
+
+export function normalizeAppStorage(raw: Partial<AppStorage>, fallback: AppStorage): AppStorage {
+  const rawShiftTypes =
+    raw.appSettings?.shiftTypes ?? raw.shiftTypes ?? fallback.appSettings.shiftTypes;
+  const schoolSchedules =
+    raw.appSettings?.schedule?.schoolSchedules ??
+    raw.schoolSchedules ??
+    fallback.appSettings.schedule.schoolSchedules;
+  const migratedShiftTypes = migrateShiftTypes(rawShiftTypes);
+  const appSettings = migrateAppSettings(
+    raw.appSettings
+      ? { ...raw.appSettings, shiftTypes: migratedShiftTypes }
+      : raw.appSettings,
+    migratedShiftTypes,
+    schoolSchedules
+  );
+
+  return syncSettingsDerivedFields({
+    version: typeof raw.version === 'number' ? raw.version : STORAGE_VERSION,
+    employees: Array.isArray(raw.employees) ? raw.employees : fallback.employees,
+    scheduleShifts: Array.isArray(raw.scheduleShifts)
+      ? raw.scheduleShifts
+      : fallback.scheduleShifts,
+    actualWorkRecords: Array.isArray(raw.actualWorkRecords)
+      ? raw.actualWorkRecords
+      : fallback.actualWorkRecords,
+    payrollAdjustmentRecords: Array.isArray(raw.payrollAdjustmentRecords)
+      ? raw.payrollAdjustmentRecords
+      : fallback.payrollAdjustmentRecords,
+    inventoryItems: Array.isArray(raw.inventoryItems) ? raw.inventoryItems : [],
+    purchaseOrders: Array.isArray(raw.purchaseOrders) ? raw.purchaseOrders : [],
+    salesRecords: Array.isArray(raw.salesRecords) ? raw.salesRecords : [],
+    shiftTypes: appSettings.shiftTypes,
+    schoolSchedules: appSettings.schedule.schoolSchedules,
+    appSettings,
+  });
 }
 
 function enrichAttendance(data: AppStorage): AppStorage {
@@ -75,9 +131,9 @@ function setSyncState(patch: Partial<SyncState>): void {
   notifySyncChanged();
 }
 
-function readLegacyMigration(): AppStorage | null {
+export function readLocalBackup(): AppStorage | null {
   try {
-    const raw = localStorage.getItem(LEGACY_MIGRATION_KEY);
+    const raw = localStorage.getItem(LOCAL_BACKUP_KEY);
     if (!raw) return null;
     return JSON.parse(raw) as AppStorage;
   } catch {
@@ -85,8 +141,42 @@ function readLegacyMigration(): AppStorage | null {
   }
 }
 
-function clearLegacyMigration(): void {
-  localStorage.removeItem(LEGACY_MIGRATION_KEY);
+function writeLocalBackup(data: AppStorage): void {
+  try {
+    localStorage.setItem(LOCAL_BACKUP_KEY, JSON.stringify(data));
+    setSyncState({ hasLocalBackup: true });
+  } catch (error) {
+    console.warn('Failed to write local backup:', error);
+  }
+}
+
+function isRemoteEmpty(remote: RemoteDataPayload): boolean {
+  return (
+    remote.employees.length === 0 &&
+    remote.scheduleShifts.length === 0 &&
+    remote.actualWorkRecords.length === 0 &&
+    remote.payrollAdjustmentRecords.length === 0 &&
+    (remote.inventoryItems ?? []).length === 0 &&
+    (remote.purchaseOrders ?? []).length === 0 &&
+    (remote.salesRecords ?? []).length === 0 &&
+    !hasMeaningfulSettings(remote.appSettings)
+  );
+}
+
+function hasMeaningfulSettings(settings: AppStorage['appSettings'] | undefined): boolean {
+  if (!settings || typeof settings !== 'object') return false;
+  return Boolean(
+    settings.security?.passwordHash ||
+      (settings.store?.name && settings.store.name !== '1% PC&CAFE') ||
+      (settings.positions?.length ?? 0) > 0 ||
+      (settings.shiftTypes?.length ?? 0) > 0
+  );
+}
+
+function loadFromLocalBackup(fallback: AppStorage): AppStorage | null {
+  const backup = readLocalBackup();
+  if (!backup) return null;
+  return enrichAttendance(normalizeAppStorage(backup, fallback));
 }
 
 function dispatchDataEvents(previous: AppStorage | null, next: AppStorage): void {
@@ -149,6 +239,8 @@ export function readCache(): AppStorage {
 export function writeCache(data: AppStorage): void {
   const previous = cache;
   cache = enrichAttendance(data);
+  writeLocalBackup(cache);
+  hasPendingPush = true;
   queuePush();
   dispatchDataEvents(previous, cache);
 }
@@ -163,6 +255,21 @@ function scheduleRetry(attempt: number): void {
 
 async function pushNow(attempt = 0): Promise<void> {
   if (!cache || pushInFlight) return;
+
+  const online = await checkApiHealth();
+  if (!online) {
+    setSyncState({
+      status: 'error',
+      error: '오프라인 — 변경 사항은 로컬에 저장되었습니다. 연결되면 자동 동기화됩니다.',
+      isOnline: false,
+      hasLocalBackup: Boolean(readLocalBackup()),
+    });
+    if (attempt < MAX_PUSH_RETRIES) {
+      scheduleRetry(attempt);
+    }
+    return;
+  }
+
   pushInFlight = true;
   setSyncState({ status: 'syncing', error: null });
   try {
@@ -171,19 +278,22 @@ async function pushNow(attempt = 0): Promise<void> {
       clearTimeout(retryTimer);
       retryTimer = null;
     }
+    hasPendingPush = false;
     setSyncState({
       status: 'idle',
       lastSyncAt: new Date().toISOString(),
       syncToken,
       isOnline: true,
       error: null,
+      hasLocalBackup: true,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Google Sheets 저장 실패';
     setSyncState({
       status: 'error',
-      error: message,
+      error: `${message} (로컬 백업은 유지됩니다)`,
       isOnline: false,
+      hasLocalBackup: Boolean(readLocalBackup()),
     });
     if (attempt < MAX_PUSH_RETRIES) {
       scheduleRetry(attempt);
@@ -210,7 +320,8 @@ export async function flushPush(): Promise<void> {
 }
 
 async function pullRemote(): Promise<void> {
-  if (pushInFlight || !cache) return;
+  if (pushInFlight || pushTimer || hasPendingPush || !cache) return;
+
   try {
     const remote = await fetchRemoteData();
     if (remote.syncToken === syncState.syncToken) {
@@ -221,18 +332,21 @@ async function pullRemote(): Promise<void> {
     const previous = cache;
     const next = enrichAttendance(fromRemotePayload(remote, cache));
     cache = next;
+    writeLocalBackup(cache);
     setSyncState({
       status: 'idle',
       syncToken: remote.syncToken,
       lastSyncAt: new Date().toISOString(),
       isOnline: true,
       error: null,
+      hasLocalBackup: true,
     });
     dispatchDataEvents(previous, next);
   } catch (error) {
     setSyncState({
       isOnline: false,
       error: error instanceof Error ? error.message : 'Google Sheets 불러오기 실패',
+      hasLocalBackup: Boolean(readLocalBackup()),
     });
   }
 }
@@ -241,46 +355,65 @@ function startPolling(): void {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = setInterval(() => {
     pullRemote().catch(console.error);
-    if (syncState.status === 'error' && !pushInFlight) {
+    if ((syncState.status === 'error' || hasPendingPush) && !pushInFlight) {
       pushNow().catch(console.error);
     }
   }, POLL_INTERVAL_MS);
 }
 
-export async function initDataStore(defaultData: AppStorage): Promise<void> {
-  if (initialized) return;
-  setSyncState({ status: 'loading', error: null });
+async function doInitDataStore(defaultData: AppStorage): Promise<void> {
+  setSyncState({
+    status: 'loading',
+    error: null,
+    hasLocalBackup: Boolean(readLocalBackup()),
+  });
 
   const online = await checkApiHealth();
   if (!online) {
+    const fromLocal = loadFromLocalBackup(defaultData);
     initialized = true;
+    if (fromLocal) {
+      cache = fromLocal;
+      setSyncState({
+        status: 'error',
+        error:
+          'Google Sheets에 연결할 수 없습니다. 마지막 로컬 백업을 불러왔습니다. 연결되면 자동 동기화됩니다.',
+        isOnline: false,
+        hasLocalBackup: true,
+      });
+      startPolling();
+      return;
+    }
+
     cache = enrichAttendance(defaultData);
+    writeLocalBackup(cache);
     setSyncState({
       status: 'error',
       error:
         'Google Sheets에 연결할 수 없습니다. Vercel 환경변수(GOOGLE_SHEETS_ID, GOOGLE_SERVICE_ACCOUNT_JSON)를 확인하세요.',
       isOnline: false,
+      hasLocalBackup: true,
     });
     return;
   }
 
   try {
     let remote = await fetchRemoteData();
-    const isEmpty =
-      remote.employees.length === 0 &&
-      remote.scheduleShifts.length === 0 &&
-      remote.actualWorkRecords.length === 0 &&
-      remote.payrollAdjustmentRecords.length === 0;
 
-    if (isEmpty) {
-      const legacy = readLegacyMigration();
-      const seed = legacy ?? defaultData;
-      const syncToken = await pushRemoteData(toRemotePayload(seed));
-      remote = { ...toRemotePayload(seed), syncToken };
-      clearLegacyMigration();
+    if (isRemoteEmpty(remote)) {
+      const localBackup = readLocalBackup();
+      if (localBackup) {
+        const normalized = normalizeAppStorage(localBackup, defaultData);
+        const syncToken = await pushRemoteData(toRemotePayload(normalized));
+        remote = { ...toRemotePayload(normalized), syncToken };
+      } else {
+        const syncToken = await pushRemoteData(toRemotePayload(defaultData));
+        remote = { ...toRemotePayload(defaultData), syncToken };
+      }
     }
 
     cache = enrichAttendance(fromRemotePayload(remote, defaultData));
+    writeLocalBackup(cache);
     initialized = true;
     setSyncState({
       status: 'idle',
@@ -288,17 +421,45 @@ export async function initDataStore(defaultData: AppStorage): Promise<void> {
       lastSyncAt: new Date().toISOString(),
       isOnline: true,
       error: null,
+      hasLocalBackup: true,
     });
     startPolling();
   } catch (error) {
+    const fromLocal = loadFromLocalBackup(defaultData);
     initialized = true;
+    if (fromLocal) {
+      cache = fromLocal;
+      setSyncState({
+        status: 'error',
+        error:
+          (error instanceof Error ? error.message : 'Google Sheets 초기화 실패') +
+          ' — 마지막 로컬 백업을 불러왔습니다.',
+        isOnline: false,
+        hasLocalBackup: true,
+      });
+      startPolling();
+      return;
+    }
+
     cache = enrichAttendance(defaultData);
+    writeLocalBackup(cache);
     setSyncState({
       status: 'error',
       error: error instanceof Error ? error.message : 'Google Sheets 초기화 실패',
       isOnline: false,
+      hasLocalBackup: true,
     });
   }
+}
+
+export async function initDataStore(defaultData: AppStorage): Promise<void> {
+  if (initialized) return;
+  if (!initPromise) {
+    initPromise = doInitDataStore(defaultData).finally(() => {
+      initPromise = null;
+    });
+  }
+  return initPromise;
 }
 
 export function stopDataStorePolling(): void {
@@ -309,4 +470,41 @@ export function stopDataStorePolling(): void {
 export async function forceSyncNow(): Promise<void> {
   await flushPush();
   await pullRemote();
+}
+
+export function registerPersistenceLifecycle(): () => void {
+  const flushOnHide = () => {
+    if (document.visibilityState === 'hidden') {
+      flushPush().catch(console.error);
+    }
+  };
+
+  const flushOnUnload = () => {
+    if (!cache) return;
+    try {
+      writeLocalBackup(cache);
+      const payload = JSON.stringify(toRemotePayload(cache));
+      const base = import.meta.env.VITE_API_URL ?? '';
+      const apiKey = import.meta.env.VITE_API_KEY ?? '';
+      fetch(`${base}/api/data`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'x-api-key': apiKey } : {}),
+        },
+        body: payload,
+        keepalive: true,
+      }).catch(() => undefined);
+    } catch {
+      // Best-effort flush on tab close.
+    }
+  };
+
+  document.addEventListener('visibilitychange', flushOnHide);
+  window.addEventListener('pagehide', flushOnUnload);
+
+  return () => {
+    document.removeEventListener('visibilitychange', flushOnHide);
+    window.removeEventListener('pagehide', flushOnUnload);
+  };
 }
