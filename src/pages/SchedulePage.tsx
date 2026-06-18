@@ -21,9 +21,9 @@ export function SchedulePage() {
   const { settings } = useSettings();
   const [anchorDate, setAnchorDate] = useState(() => new Date());
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
-    const prefersWeekly =
+    const prefersMobile =
       typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
-    if (prefersWeekly) return 'weekly';
+    if (prefersMobile) return 'monthly';
     return settings.schedule.defaultView ?? 'monthly';
   });
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);

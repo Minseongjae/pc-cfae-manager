@@ -13,7 +13,7 @@ import {
   KOREAN_WEEKDAYS,
 } from '@/lib/koreanHolidays';
 import { scheduleDateKey, shiftMatchesDay } from '@/lib/scheduleViewRange';
-import { ScheduleMobileAgenda } from '@/components/schedule/ScheduleMobileAgenda';
+import { ScheduleMobileCalendar } from '@/components/schedule/ScheduleMobileCalendar';
 
 interface ScheduleCalendarProps {
   days: Date[];
@@ -104,12 +104,20 @@ export function ScheduleCalendar({
 
   if (isMobile) {
     return (
-      <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
-        <ScheduleMobileAgenda
+      <div className="flex-1 overflow-hidden min-h-0 flex flex-col px-1 pt-1">
+        <CalendarLegend compact />
+        <ScheduleMobileCalendar
           days={days}
           weekStartsOn={weekStartsOn}
           shifts={shifts}
+          draggingId={draggingId}
+          dropTarget={dropTarget}
           readOnly={readOnly}
+          onDragStart={onDragStart}
+          onDragEnd={onDragEnd}
+          onDragOver={onDragOver}
+          onDrop={onDrop}
+          onResize={onResize}
           onEditShift={onEditShift}
           onCreateInCell={onCreateInCell}
         />

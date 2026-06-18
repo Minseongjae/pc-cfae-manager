@@ -177,3 +177,22 @@ export function formatWeekChipLabel(week: Date[]): string {
   }
   return `${format(start, 'M/d')}~${format(end, 'M/d')}`;
 }
+
+/** Full month calendar grid (includes leading/trailing days for complete weeks). */
+export function buildMonthCalendarGrid(
+  monthAnchor: Date,
+  weekStartsOn: 0 | 1
+): Date[][] {
+  const start = startOfWeek(startOfMonth(monthAnchor), { weekStartsOn });
+  const end = endOfWeek(endOfMonth(monthAnchor), { weekStartsOn });
+  const allDays = eachDayOfInterval({ start, end });
+  const weeks: Date[][] = [];
+  for (let i = 0; i < allDays.length; i += 7) {
+    weeks.push(allDays.slice(i, i + 7));
+  }
+  return weeks;
+}
+
+export function isDayInScheduleMonth(day: Date, monthAnchor: Date): boolean {
+  return isSameMonth(day, monthAnchor);
+}
