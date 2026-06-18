@@ -25,7 +25,7 @@ import type {
 } from '@/lib/appSettings';
 import type { SchoolSchedule } from '@/lib/appStorage';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { getScheduleShifts, getAppSettings } from '@/lib/storage';
+import { deleteShiftType, getAppSettings, ShiftTypeDeleteError } from '@/lib/storage';
 import {
   createShiftTypeId,
   moveShiftType,
@@ -72,6 +72,15 @@ export function SettingsPage() {
     setDraft(settings);
   }, [settings, version]);
 
+  useEffect(() => {
+    setDraft((current) => {
+      if (JSON.stringify(current.shiftTypes) === JSON.stringify(settings.shiftTypes)) {
+        return current;
+      }
+      return { ...current, shiftTypes: settings.shiftTypes };
+    });
+  }, [settings.shiftTypes, version]);
+
   const patchDraft = (patch: Partial<AppSettings>) => {
     setDraft((current) => ({ ...current, ...patch }));
   };
@@ -86,7 +95,7 @@ export function SettingsPage() {
   const handleSave = () => {
     save({
       ...draft,
-      shiftTypes: sortShiftTypes(draft.shiftTypes),
+      shiftTypes: sortShiftTypes(getAppSettings().shiftTypes),
     });
     setSavedMessage('Google Sheets에 저장되었습니다.');
     setTimeout(() => setSavedMessage(''), 2500);
@@ -637,28 +646,32 @@ function ShiftTypesSection() {
     const target = types.find((row) => row.id === id);
     if (!target) return;
 
-    const usedCount = getScheduleShifts().filter((shift) => shift.rowId === target.id).length;
-    if (usedCount > 0) {
-      setDeleteError(`"${target.name}" 유형은 스케줄에 ${usedCount}건 사용 중이라 삭제할 수 없습니다.`);
-      return;
-    }
-    if (types.length <= 1) {
-      setDeleteError('최소 1개의 근무유형이 필요합니다.');
-      return;
-    }
+    try {
+      const { types: nextTypes, reassignedShiftCount, reassignTargetName } =
+        deleteShiftType(id);
 
-    setDeleteError('');
-    setNameDrafts((current) => {
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
-    persist(
-      types
-        .filter((row) => row.id !== id)
-        .map((row, index) => ({ ...row, sortOrder: index })),
-      `"${target.name}" 삭제됨`
-    );
+      setDeleteError('');
+      setNameDrafts((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      saveShiftTypes(nextTypes);
+
+      if (reassignedShiftCount > 0 && reassignTargetName) {
+        setSavedHint(
+          `"${target.name}" 삭제됨 · 스케줄 ${reassignedShiftCount}건을 "${reassignTargetName}"(으)로 이동`
+        );
+      } else {
+        setSavedHint(`"${target.name}" 삭제됨`);
+      }
+    } catch (error) {
+      if (error instanceof ShiftTypeDeleteError && error.code === 'MIN_ONE_SHIFT_TYPE') {
+        setDeleteError('최소 1개의 근무유형이 필요합니다.');
+        return;
+      }
+      setDeleteError('근무유형을 삭제하지 못했습니다. 다시 시도해 주세요.');
+    }
   };
 
   return (

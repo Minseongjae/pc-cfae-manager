@@ -1,11 +1,7 @@
 import { useEffect, useState } from 'react';
 import { SETTINGS_CHANGED_EVENT } from '@/lib/appSettings';
-import {
-  appendMissingShiftTypes,
-  migrateShiftTypes,
-  sortShiftTypes,
-} from '@/lib/scheduleShiftTypes';
-import { getScheduleShifts, getShiftTypes } from '@/lib/storage';
+import { sortShiftTypes } from '@/lib/scheduleShiftTypes';
+import { getShiftTypes } from '@/lib/storage';
 import type { ShiftType } from '@/types';
 
 export function useScheduleShiftTypes(): ShiftType[] {
@@ -25,9 +21,7 @@ export function useScheduleShiftTypes(): ShiftType[] {
 }
 
 function loadShiftTypes(): ShiftType[] {
-  const migrated = migrateShiftTypes(getShiftTypes());
-  const usedRowIds = [...new Set(getScheduleShifts().map((shift) => shift.rowId))];
-  return sortShiftTypes(appendMissingShiftTypes(migrated, usedRowIds));
+  return sortShiftTypes(getShiftTypes());
 }
 
 export function findShiftTypeById(

@@ -626,7 +626,11 @@ export function getSchoolSchedules(): SchoolSchedule[] {
 }
 
 export function getShiftTypes(): ShiftType[] {
-  return migrateShiftTypes(readStorage().appSettings.shiftTypes);
+  const raw = readStorage().appSettings.shiftTypes;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return sortShiftTypes(migrateShiftTypes(raw));
+  }
+  return sortShiftTypes(raw);
 }
 
 export function getScheduleShifts(year?: number, month?: number): ScheduleShift[] {
@@ -804,6 +808,60 @@ export function saveShiftTypes(types: ShiftType[]): ShiftType[] {
   writeStorage(data);
   notifySettingsChanged();
   return normalized;
+}
+
+export class ShiftTypeDeleteError extends Error {
+  constructor(public readonly code: 'MIN_ONE_SHIFT_TYPE' | 'NOT_FOUND') {
+    super(code);
+    this.name = 'ShiftTypeDeleteError';
+  }
+}
+
+/** Delete a shift type. Shifts on that row are moved to the nearest remaining type. */
+export function deleteShiftType(id: string): {
+  types: ShiftType[];
+  reassignedShiftCount: number;
+  reassignTargetName: string | null;
+} {
+  const data = readStorage();
+  const types = sortShiftTypes(data.appSettings.shiftTypes);
+  const index = types.findIndex((type) => type.id === id);
+  if (index < 0) {
+    throw new ShiftTypeDeleteError('NOT_FOUND');
+  }
+  if (types.length <= 1) {
+    throw new ShiftTypeDeleteError('MIN_ONE_SHIFT_TYPE');
+  }
+
+  const remaining = types.filter((type) => type.id !== id);
+  const reassignTarget = remaining[Math.min(index, remaining.length - 1)];
+  const shiftsToMove = data.scheduleShifts.filter((shift) => shift.rowId === id);
+
+  if (shiftsToMove.length > 0 && reassignTarget) {
+    data.scheduleShifts = data.scheduleShifts.map((shift) => {
+      if (shift.rowId !== id) return shift;
+      const rowId = reassignTarget.id as ShiftRowId;
+      return {
+        ...shift,
+        rowId,
+        id: createShiftId(shift.day, rowId, shift.name),
+      };
+    });
+  }
+
+  const nextTypes = remaining.map((type, order) => ({ ...type, sortOrder: order }));
+  data.appSettings = { ...data.appSettings, shiftTypes: nextTypes };
+  writeStorage(data);
+  notifySettingsChanged();
+  if (shiftsToMove.length > 0) {
+    window.dispatchEvent(new Event('schedules-changed'));
+  }
+
+  return {
+    types: nextTypes,
+    reassignedShiftCount: shiftsToMove.length,
+    reassignTargetName: reassignTarget?.name ?? null,
+  };
 }
 
 function toEmployee(emp: EmployeeRow): Employee {

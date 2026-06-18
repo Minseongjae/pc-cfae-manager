@@ -14,6 +14,7 @@ import {
   type AppSettings,
 } from '@/lib/appSettings';
 import type { ShiftType } from '@/types';
+import { flushPush } from '@/lib/dataStore';
 import {
   exportAppBackup,
   getAppSettings,
@@ -81,6 +82,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       const normalized = persistShiftTypes(types);
       setSettings((current) => ({ ...current, shiftTypes: normalized }));
       setVersion((v) => v + 1);
+      void flushPush();
     },
     []
   );
