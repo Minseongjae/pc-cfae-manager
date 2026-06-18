@@ -39,22 +39,25 @@ interface ScheduleMobileCalendarProps {
   onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
 }
 
-const MAX_CELL_CHIPS = 2;
+/** Minimum height per day cell in month grid (px). */
+const MONTH_CELL_MIN_HEIGHT = 132;
+/** Minimum width per day column in week grid (px). */
+const WEEK_COL_MIN_WIDTH = 88;
 
 function weekdayHeaderOrder(weekStartsOn: 0 | 1): number[] {
   return weekStartsOn === 1 ? [1, 2, 3, 4, 5, 6, 0] : [0, 1, 2, 3, 4, 5, 6];
 }
 
 function dayNumberClasses(day: Date, today: boolean, inMonth: boolean): string {
-  if (!inMonth) return 'text-stone-300 font-normal';
+  if (!inMonth) return 'text-stone-300 font-normal text-sm';
   if (today) {
-    return 'w-5 h-5 flex items-center justify-center rounded-full bg-stone-800 text-white text-[10px] font-bold';
+    return 'w-7 h-7 flex items-center justify-center rounded-full bg-stone-800 text-white text-xs font-bold';
   }
   if (isPublicHoliday(day) || (isRedCalendarDay(day) && !isSaturday(day))) {
-    return 'text-rose-600 font-semibold';
+    return 'text-rose-600 font-semibold text-sm';
   }
-  if (isSaturday(day)) return 'text-blue-600 font-semibold';
-  return 'text-stone-700 font-medium';
+  if (isSaturday(day)) return 'text-blue-600 font-semibold text-sm';
+  return 'text-stone-700 font-semibold text-sm';
 }
 
 function cellBgClasses(day: Date, today: boolean, inMonth: boolean, selected: boolean): string {
@@ -96,11 +99,14 @@ function MobileShiftChip({
         if (!readOnly) onEdit(shift);
       }}
       style={style}
-      className={`w-full text-left rounded px-0.5 py-px text-[8px] leading-tight truncate border ${
+      className={`w-full text-left rounded-md border px-1 py-1 shadow-sm ${
         readOnly ? 'cursor-default' : 'active:opacity-80'
       }`}
     >
-      {shift.name}
+      <div className="font-semibold text-[11px] leading-tight truncate">{shift.name}</div>
+      <div className="text-[10px] leading-tight opacity-90 mt-0.5">
+        {shift.startTime}–{shift.endTime}
+      </div>
     </button>
   );
 }
@@ -125,33 +131,33 @@ function DayDetailPanel({
   const holidayName = getHolidayName(day);
 
   return (
-    <div className="shrink-0 border-t border-stone-200 bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.06)] max-h-[38vh] flex flex-col">
-      <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-stone-100">
+    <div className="shrink-0 border-t border-stone-200 bg-white shadow-[0_-4px_16px_rgba(0,0,0,0.06)] max-h-[42vh] flex flex-col">
+      <div className="flex items-center justify-between gap-2 px-3 py-2.5 border-b border-stone-100">
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-stone-800 truncate">
+          <p className="text-base font-semibold text-stone-800 truncate">
             {format(day, 'M월 d일 (EEE)', { locale: ko })}
           </p>
-          {holidayName && <p className="text-[10px] text-rose-600">{holidayName}</p>}
+          {holidayName && <p className="text-xs text-rose-600">{holidayName}</p>}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1.5 shrink-0">
           {!readOnly && onCreateInCell && (
             <button
               type="button"
-              className="btn-primary text-[11px] px-2 py-1 touch-target"
+              className="btn-primary text-xs px-2.5 py-1.5 touch-target"
               onClick={() => onCreateInCell(day, defaultRowId)}
             >
-              <Plus size={12} />
+              <Plus size={14} />
               추가
             </button>
           )}
-          <button type="button" className="btn-ghost p-1.5 touch-target" onClick={onClose} aria-label="닫기">
-            <X size={16} />
+          <button type="button" className="btn-ghost p-2 touch-target" onClick={onClose} aria-label="닫기">
+            <X size={18} />
           </button>
         </div>
       </div>
-      <div className="overflow-y-auto px-3 py-2 space-y-1.5 min-h-0">
+      <div className="overflow-y-auto px-3 py-2 space-y-2 min-h-0">
         {shifts.length === 0 ? (
-          <p className="text-xs text-stone-400 py-2 text-center">등록된 근무 없음</p>
+          <p className="text-sm text-stone-400 py-3 text-center">등록된 근무 없음</p>
         ) : (
           shifts.map((shift) => (
             <ShiftCard
@@ -207,13 +213,13 @@ function MonthGrid({
   const headerOrder = weekdayHeaderOrder(weekStartsOn);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 px-1 pb-1">
-      <div className="grid grid-cols-7 shrink-0 border-b border-stone-200/80">
+    <div className="flex-1 flex flex-col min-h-0">
+      <div className="grid grid-cols-7 shrink-0 border-b border-stone-200 bg-stone-50/80 sticky top-0 z-10">
         {headerOrder.map((dow) => (
           <div
             key={dow}
-            className={`text-center py-1 text-[10px] font-medium ${
-              dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : 'text-stone-500'
+            className={`text-center py-2 text-xs font-semibold ${
+              dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : 'text-stone-600'
             }`}
           >
             {KOREAN_WEEKDAYS[dow]}
@@ -221,12 +227,9 @@ function MonthGrid({
         ))}
       </div>
 
-      <div
-        className="flex-1 grid min-h-0 gap-px bg-stone-200/60"
-        style={{ gridTemplateRows: `repeat(${weeks.length}, minmax(0, 1fr))` }}
-      >
+      <div className="flex-1 overflow-y-auto min-h-0 bg-stone-200/50">
         {weeks.map((week, wi) => (
-          <div key={wi} className="grid grid-cols-7 min-h-0 gap-px">
+          <div key={wi} className="grid grid-cols-7 gap-px mb-px">
             {week.map((day) => {
               const inMonth = monthAnchor ? isDayInScheduleMonth(day, monthAnchor) : false;
               const inRange = isDateWithinScheduleRange(day);
@@ -234,8 +237,6 @@ function MonthGrid({
               const dayShifts = inMonth && inRange ? (shiftsByDay.get(key) ?? []) : [];
               const today = isToday(day);
               const selected = selectedDay ? isSameDay(day, selectedDay) : false;
-              const visible = dayShifts.slice(0, MAX_CELL_CHIPS);
-              const overflow = dayShifts.length - visible.length;
 
               return (
                 <button
@@ -243,15 +244,16 @@ function MonthGrid({
                   type="button"
                   disabled={!inMonth || !inRange}
                   onClick={() => inMonth && inRange && onSelectDay(day)}
-                  className={`flex flex-col min-h-0 min-w-0 p-0.5 text-left transition-colors ${cellBgClasses(day, today, inMonth && inRange, selected)} ${
+                  style={{ minHeight: MONTH_CELL_MIN_HEIGHT }}
+                  className={`flex flex-col min-w-0 p-1 text-left transition-colors ${cellBgClasses(day, today, inMonth && inRange, selected)} ${
                     inMonth && inRange ? 'active:bg-stone-100' : 'cursor-default'
                   }`}
                 >
-                  <span className={`text-[10px] leading-none mb-0.5 shrink-0 ${dayNumberClasses(day, today, inMonth && inRange)}`}>
+                  <span className={`mb-1 shrink-0 ${dayNumberClasses(day, today, inMonth && inRange)}`}>
                     {day.getDate()}
                   </span>
-                  <div className="flex-1 min-h-0 flex flex-col gap-px overflow-hidden">
-                    {visible.map((shift) => (
+                  <div className="flex-1 min-h-0 flex flex-col gap-1 overflow-y-auto">
+                    {dayShifts.map((shift) => (
                       <MobileShiftChip
                         key={shift.id}
                         shift={shift}
@@ -259,9 +261,6 @@ function MonthGrid({
                         onEdit={onEditShift}
                       />
                     ))}
-                    {overflow > 0 && (
-                      <span className="text-[8px] text-stone-500 leading-none">+{overflow}</span>
-                    )}
                   </div>
                 </button>
               );
@@ -316,86 +315,94 @@ function WeekGrid({
     return map;
   }, [days, shifts]);
 
+  const gridMinWidth = 52 + days.length * WEEK_COL_MIN_WIDTH;
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-1 pb-1">
-      <div className="flex shrink-0 border-b border-stone-200/80 ml-9">
-        {days.map((day) => {
-          const today = isToday(day);
-          const dow = day.getDay();
-          return (
-            <div
-              key={day.toISOString()}
-              className={`flex-1 min-w-0 text-center py-1 border-r border-stone-100 last:border-r-0 ${today ? 'bg-amber-50/80' : ''}`}
-            >
-              <div className={`text-[10px] font-medium ${dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : 'text-stone-500'}`}>
-                {KOREAN_WEEKDAYS[dow]}
-              </div>
-              <div className={dayNumberClasses(day, today, true)}>{day.getDate()}</div>
-            </div>
-          );
-        })}
-      </div>
-
-      <div className="flex-1 overflow-y-auto min-h-0">
-        {shiftTypes.map((row) => (
-          <div key={row.id} className="flex border-b border-stone-100 min-h-[52px]">
-            <div
-              className="w-9 shrink-0 flex items-start justify-center pt-1.5 border-r border-stone-100 bg-stone-50/50"
-              style={{ color: row.color }}
-            >
-              <span className="text-[8px] font-medium leading-tight text-center break-all px-0.5">
-                {row.name}
-              </span>
-            </div>
+    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div className="flex-1 overflow-auto min-h-0">
+        <div style={{ minWidth: gridMinWidth }}>
+          <div className="flex shrink-0 border-b border-stone-200/80 sticky top-0 z-10 bg-white">
+            <div className="w-[52px] shrink-0 border-r border-stone-100 bg-stone-50/80" />
             {days.map((day) => {
-              const key = `${scheduleDateKey(day.getFullYear(), day.getMonth() + 1, day.getDate())}-${row.id}`;
-              const cellShifts = shiftsByDayAndRow.get(key) ?? [];
               const today = isToday(day);
-              const isDropTarget = dropTarget === key && draggingId != null;
-
+              const dow = day.getDay();
               return (
                 <div
-                  key={key}
-                  onDragOver={(e) => {
-                    if (readOnly || !onDragOver) return;
-                    e.preventDefault();
-                    onDragOver(key);
-                  }}
-                  onDrop={(e) => {
-                    if (readOnly || !onDrop) return;
-                    const shiftId = e.dataTransfer.getData('text/shift-id');
-                    if (shiftId) onDrop(shiftId, day, row.id);
-                  }}
-                  className={`flex-1 min-w-0 border-r border-stone-50 last:border-r-0 p-0.5 space-y-0.5 ${cellBgClasses(day, today, true, false)} ${
-                    isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
-                  }`}
+                  key={day.toISOString()}
+                  style={{ minWidth: WEEK_COL_MIN_WIDTH }}
+                  className={`flex-1 text-center py-2 border-r border-stone-100 last:border-r-0 ${today ? 'bg-amber-50/80' : 'bg-stone-50/80'}`}
                 >
-                  {cellShifts.map((s) => (
-                    <ShiftCard
-                      key={s.id}
-                      shift={s}
-                      readOnly={readOnly}
-                      isDragging={draggingId === s.id}
-                      onDragStart={onDragStart ?? (() => {})}
-                      onDragEnd={onDragEnd ?? (() => {})}
-                      onResize={onResize ?? (() => {})}
-                      onEdit={onEditShift}
-                    />
-                  ))}
-                  {cellShifts.length === 0 && onCreateInCell && !readOnly && (
-                    <button
-                      type="button"
-                      onClick={() => onCreateInCell(day, row.id)}
-                      className="w-full min-h-[28px] rounded border border-dashed border-stone-300/50 text-stone-400 text-[9px] touch-target"
-                    >
-                      +
-                    </button>
-                  )}
+                  <div className={`text-xs font-semibold ${dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : 'text-stone-600'}`}>
+                    {KOREAN_WEEKDAYS[dow]}
+                  </div>
+                  <div className={dayNumberClasses(day, today, true)}>{day.getDate()}</div>
                 </div>
               );
             })}
           </div>
-        ))}
+
+          {shiftTypes.map((row) => (
+            <div key={row.id} className="flex border-b border-stone-100 min-h-[88px]">
+              <div
+                className="w-[52px] shrink-0 flex items-center justify-center px-1 border-r border-stone-100 bg-stone-50/50"
+                style={{ color: row.color }}
+              >
+                <span className="text-[10px] font-semibold leading-tight text-center break-all">
+                  {row.name}
+                </span>
+              </div>
+              {days.map((day) => {
+                const key = `${scheduleDateKey(day.getFullYear(), day.getMonth() + 1, day.getDate())}-${row.id}`;
+                const cellShifts = shiftsByDayAndRow.get(key) ?? [];
+                const today = isToday(day);
+                const isDropTarget = dropTarget === key && draggingId != null;
+
+                return (
+                  <div
+                    key={key}
+                    style={{ minWidth: WEEK_COL_MIN_WIDTH }}
+                    onDragOver={(e) => {
+                      if (readOnly || !onDragOver) return;
+                      e.preventDefault();
+                      onDragOver(key);
+                    }}
+                    onDrop={(e) => {
+                      if (readOnly || !onDrop) return;
+                      const shiftId = e.dataTransfer.getData('text/shift-id');
+                      if (shiftId) onDrop(shiftId, day, row.id);
+                    }}
+                    className={`flex-1 border-r border-stone-50 last:border-r-0 p-1 space-y-1 ${cellBgClasses(day, today, true, false)} ${
+                      isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
+                    }`}
+                  >
+                    {cellShifts.map((s) => (
+                      <ShiftCard
+                        key={s.id}
+                        shift={s}
+                        compact
+                        readOnly={readOnly}
+                        isDragging={draggingId === s.id}
+                        onDragStart={onDragStart ?? (() => {})}
+                        onDragEnd={onDragEnd ?? (() => {})}
+                        onResize={onResize ?? (() => {})}
+                        onEdit={onEditShift}
+                      />
+                    ))}
+                    {cellShifts.length === 0 && onCreateInCell && !readOnly && (
+                      <button
+                        type="button"
+                        onClick={() => onCreateInCell(day, row.id)}
+                        className="w-full min-h-[36px] rounded-lg border border-dashed border-stone-300/60 text-stone-400 text-xs touch-target"
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -420,22 +427,16 @@ export function ScheduleMobileCalendar({
   const defaultRowId = shiftTypes[0]?.id ?? 'morning';
   const isMonthView = days.length > 7;
 
-  const initialSelected = useMemo(() => {
-    const today = new Date();
-    if (days.some((d) => isSameDay(d, today))) return today;
-    return days[0] ?? null;
-  }, [days]);
-
-  const [selectedDay, setSelectedDay] = useState<Date | null>(initialSelected);
-
-  useEffect(() => {
-    setSelectedDay(initialSelected);
-  }, [initialSelected]);
+  const [selectedDay, setSelectedDay] = useState<Date | null>(null);
 
   const selectedShifts = useMemo(() => {
     if (!selectedDay) return [];
     return shifts.filter((s) => shiftMatchesDay(s, selectedDay));
   }, [shifts, selectedDay]);
+
+  useEffect(() => {
+    setSelectedDay(null);
+  }, [days]);
 
   if (days.length === 0) {
     return (

@@ -11,6 +11,7 @@ interface ShiftCardProps {
   shift: ScheduleShift;
   isDragging?: boolean;
   readOnly?: boolean;
+  compact?: boolean;
   onDragStart: (shiftId: string) => void;
   onDragEnd: () => void;
   onResize: (shiftId: string, deltaHours: number) => void;
@@ -23,6 +24,7 @@ export function ShiftCard({
   shift,
   isDragging,
   readOnly = false,
+  compact = false,
   onDragStart,
   onDragEnd,
   onResize,
@@ -106,7 +108,9 @@ export function ShiftCard({
       }}
       onClick={handleClick}
       style={cardStyle}
-      className={`group relative rounded-xl border shadow-sm px-3 py-2.5 text-xs leading-snug select-none transition-all duration-200 ${colorClass} ${
+      className={`group relative border shadow-sm select-none transition-all duration-200 ${colorClass} ${
+        compact ? 'rounded-lg px-1.5 py-1.5 text-[10px] leading-tight' : 'rounded-xl px-3 py-2.5 text-xs leading-snug'
+      } ${
         readOnly
           ? 'cursor-default'
           : 'cursor-pointer'
@@ -114,7 +118,7 @@ export function ShiftCard({
         isDragging ? 'opacity-50 scale-95 shadow-none' : `opacity-100 ${readOnly ? '' : 'hover:shadow-md hover:-translate-y-0.5'}`
       }`}
     >
-      {!readOnly && (
+      {!readOnly && !compact && (
       <div
         className="absolute top-1 right-1 w-4 h-4 rounded opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing"
         draggable
@@ -128,13 +132,17 @@ export function ShiftCard({
         title="드래그하여 이동"
       />
       )}
-      <div className="font-semibold text-sm tracking-tight pr-4 truncate">{shift.name}</div>
-      <div className="mt-1 font-medium opacity-90 text-[11px] md:text-xs">
+      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-[11px] pr-0' : 'text-sm pr-4'}`}>
+        {shift.name}
+      </div>
+      <div className={`font-medium opacity-90 ${compact ? 'text-[10px] mt-0.5' : 'mt-1 text-[11px] md:text-xs'}`}>
         {shift.startTime} – {shift.endTime}
       </div>
+      {!compact && (
       <div className="opacity-75 text-[10px] md:text-[11px] mt-0.5">{shift.duration}h</div>
+      )}
 
-      {!readOnly && (
+      {!readOnly && !compact && (
       <div
         onMouseDown={handleResizeStart}
         onClick={(e) => e.stopPropagation()}

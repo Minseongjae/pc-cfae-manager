@@ -104,8 +104,7 @@ export function ScheduleCalendar({
 
   if (isMobile) {
     return (
-      <div className="flex-1 overflow-hidden min-h-0 flex flex-col px-1 pt-1">
-        <CalendarLegend compact />
+      <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
         <ScheduleMobileCalendar
           days={days}
           weekStartsOn={weekStartsOn}
