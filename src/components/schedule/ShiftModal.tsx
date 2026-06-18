@@ -121,7 +121,12 @@ export function ShiftModal({
   };
 
   return (
-    <ModalOverlay onClose={onClose} panelClassName="card-elevated w-full max-w-md shadow-xl">
+    <ModalOverlay
+      onClose={onClose}
+      allowBackdropDismiss={false}
+      allowEscapeDismiss={false}
+      panelClassName="card-elevated w-full max-w-md shadow-xl"
+    >
       <div className="flex items-center justify-between px-6 py-5 border-b border-stone-200">
         <div>
           <h2 className="heading-display text-lg">

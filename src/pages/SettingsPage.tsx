@@ -25,7 +25,7 @@ import type {
 } from '@/lib/appSettings';
 import type { SchoolSchedule } from '@/lib/appStorage';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { getScheduleShifts } from '@/lib/storage';
+import { getScheduleShifts, getAppSettings } from '@/lib/storage';
 import {
   createShiftTypeId,
   moveShiftType,
@@ -554,6 +554,7 @@ function ShiftTypesSection() {
   const [deleteError, setDeleteError] = useState('');
   const [savedHint, setSavedHint] = useState('');
   const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({});
+  const nameSaveTimersRef = useRef<Record<string, number>>({});
 
   const types = settings.shiftTypes;
   const sorted = sortShiftTypes(types);
@@ -576,6 +577,14 @@ function ShiftTypesSection() {
   }, [types]);
 
   useEffect(() => {
+    return () => {
+      for (const timer of Object.values(nameSaveTimersRef.current)) {
+        window.clearTimeout(timer);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (!savedHint) return;
     const timer = window.setTimeout(() => setSavedHint(''), 2000);
     return () => window.clearTimeout(timer);
@@ -590,18 +599,38 @@ function ShiftTypesSection() {
     persist(types.map((row) => (row.id === id ? { ...row, ...patch } : row)));
   };
 
+  const commitName = (id: string, name: string) => {
+    const currentTypes = getAppSettings().shiftTypes;
+    const trimmed = name.trim();
+    const fallback = currentTypes.find((row) => row.id === id)?.name ?? '근무유형';
+    const nextName = trimmed || fallback;
+    setNameDrafts((current) => ({ ...current, [id]: nextName }));
+    if (nextName !== currentTypes.find((row) => row.id === id)?.name) {
+      persist(
+        currentTypes.map((row) => (row.id === id ? { ...row, name: nextName } : row))
+      );
+    }
+  };
+
   const handleNameChange = (id: string, name: string) => {
     setNameDrafts((current) => ({ ...current, [id]: name }));
+
+    const existingTimer = nameSaveTimersRef.current[id];
+    if (existingTimer) window.clearTimeout(existingTimer);
+
+    nameSaveTimersRef.current[id] = window.setTimeout(() => {
+      delete nameSaveTimersRef.current[id];
+      commitName(id, name);
+    }, 350);
   };
 
   const handleNameCommit = (id: string, name: string) => {
-    const trimmed = name.trim();
-    const fallback = types.find((row) => row.id === id)?.name ?? '근무유형';
-    const nextName = trimmed || fallback;
-    setNameDrafts((current) => ({ ...current, [id]: nextName }));
-    if (nextName !== types.find((row) => row.id === id)?.name) {
-      updateById(id, { name: nextName });
+    const existingTimer = nameSaveTimersRef.current[id];
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+      delete nameSaveTimersRef.current[id];
     }
+    commitName(id, name);
   };
 
   const handleDelete = (id: string) => {
@@ -618,14 +647,17 @@ function ShiftTypesSection() {
       return;
     }
 
-    const confirmed = window.confirm(`"${target.name}" 근무유형을 삭제하시겠습니까?`);
-    if (!confirmed) return;
-
     setDeleteError('');
+    setNameDrafts((current) => {
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     persist(
       types
         .filter((row) => row.id !== id)
-        .map((row, index) => ({ ...row, sortOrder: index }))
+        .map((row, index) => ({ ...row, sortOrder: index })),
+      `"${target.name}" 삭제됨`
     );
   };
 

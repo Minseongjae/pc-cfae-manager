@@ -147,39 +147,7 @@ export function migrateShiftTypes(input: unknown): ShiftType[] {
       .map((type, index) => ({ ...type, sortOrder: index }));
   }
 
-  return ensureAfternoonShiftRows(result);
-}
-
-const AFTERNOON_SHIFT_DEFAULTS: Omit<ShiftType, 'sortOrder'>[] = [
-  {
-    id: 'afternoon3',
-    name: '오후 3',
-    color: '#14B8A6',
-    defaultStartTime: '16:00',
-    defaultEndTime: '20:00',
-  },
-  {
-    id: 'afternoon4',
-    name: '오후 4',
-    color: '#0EA5E9',
-    defaultStartTime: '17:00',
-    defaultEndTime: '21:00',
-  },
-];
-
-function ensureAfternoonShiftRows(types: ShiftType[]): ShiftType[] {
-  const known = new Set(types.map((type) => type.id));
-  const merged = [...types];
-  let order = merged.length;
-
-  for (const row of AFTERNOON_SHIFT_DEFAULTS) {
-    if (known.has(row.id)) continue;
-    merged.push({ ...row, sortOrder: order });
-    known.add(row.id);
-    order += 1;
-  }
-
-  return sortShiftTypes(merged);
+  return result;
 }
 
 export function createShiftTypeId(name: string): string {

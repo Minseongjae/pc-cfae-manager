@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from 'react';
 
-const SUPPRESS_DISMISS_MS = 300;
+const SUPPRESS_DISMISS_MS = 500;
 
 interface DragGuardContextValue {
   isDragging: boolean;
@@ -46,14 +46,45 @@ export function DragGuardProvider({ children }: { children: ReactNode }) {
     const handleDragStart = () => beginDrag();
     const handleDragEnd = () => endDrag();
 
+    let touchActive = false;
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      touchActive = true;
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+    };
+
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!touchActive || event.touches.length !== 1) return;
+      const dx = Math.abs(event.touches[0].clientX - touchStartX);
+      const dy = Math.abs(event.touches[0].clientY - touchStartY);
+      if (dx > 8 || dy > 8) beginDrag();
+    };
+
+    const handleTouchEnd = () => {
+      touchActive = false;
+      endDrag();
+    };
+
     document.addEventListener('dragstart', handleDragStart);
     document.addEventListener('dragend', handleDragEnd);
     document.addEventListener('drop', handleDragEnd);
+    document.addEventListener('touchstart', handleTouchStart, { passive: true });
+    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchend', handleTouchEnd);
+    document.addEventListener('touchcancel', handleTouchEnd);
 
     return () => {
       document.removeEventListener('dragstart', handleDragStart);
       document.removeEventListener('dragend', handleDragEnd);
       document.removeEventListener('drop', handleDragEnd);
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+      document.removeEventListener('touchcancel', handleTouchEnd);
     };
   }, [beginDrag, endDrag]);
 
