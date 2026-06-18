@@ -45,6 +45,8 @@ export interface ScheduleSettings {
   allowDragDrop: boolean;
   maxScheduleYear: number;
   schoolSchedules: SchoolSchedule[];
+  /** employee id (string) -> hex color for schedule cards */
+  employeeScheduleColors?: Record<string, string>;
 }
 
 export interface PositionDefinition {
@@ -114,6 +116,7 @@ export function createDefaultAppSettings(
       allowDragDrop: true,
       maxScheduleYear: 2030,
       schoolSchedules,
+      employeeScheduleColors: {},
     },
     positions: DEFAULT_POSITIONS.map((p) => ({ ...p })),
     shiftTypes,
@@ -159,6 +162,11 @@ export function migrateAppSettings(
           : schoolSchedules.length
             ? schoolSchedules
             : defaults.schedule.schoolSchedules,
+      employeeScheduleColors:
+        input.schedule?.employeeScheduleColors &&
+        typeof input.schedule.employeeScheduleColors === 'object'
+          ? input.schedule.employeeScheduleColors
+          : defaults.schedule.employeeScheduleColors ?? {},
     },
     positions: migratePositions(
       input.positions?.length && Array.isArray(input.positions)

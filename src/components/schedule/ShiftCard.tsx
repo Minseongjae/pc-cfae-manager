@@ -4,6 +4,7 @@ import type { ScheduleShift } from '@/data/mockSchedule';
 import { getShiftCardColorClass, getShiftCardStyle } from '@/lib/shiftDisplay';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { useEmployees } from '@/contexts/EmployeesContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { findShiftTypeById, useScheduleShiftTypes } from '@/hooks/useScheduleShiftTypes';
 import { GripHorizontal } from 'lucide-react';
 
@@ -32,6 +33,7 @@ export function ShiftCard({
 }: ShiftCardProps) {
   const { beginDrag, endDrag } = useDragGuard();
   const { employees } = useEmployees();
+  const { settings } = useSettings();
   const shiftTypes = useScheduleShiftTypes();
   const { colorClass, cardStyle } = useMemo(() => {
     const employee = findEmployeeByShiftName(employees, shift.name);
@@ -44,10 +46,11 @@ export function ShiftCard({
       cardStyle: getShiftCardStyle(
         shift,
         shiftType,
-        employee ? { position: employee.position, status: employee.status } : undefined
+        employee,
+        settings.positions
       ),
     };
-  }, [employees, shift, shiftTypes]);
+  }, [employees, shift, shiftTypes, settings.positions]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
   const didDragRef = useRef(false);
 

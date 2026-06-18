@@ -11,11 +11,23 @@ import {
   type EmployeePosition,
   type EmployeeStatus,
 } from '@/lib/employees';
+import { useSettings } from '@/contexts/SettingsContext';
+import {
+  getEmployeeSwatchStyle,
+  getPositionColor,
+  resolveEmployeeScheduleColor,
+} from '@/lib/employeeColors';
+
+export type EmployeeSavePayload = {
+  input: EmployeeInput;
+  scheduleColor: string;
+  useDefaultScheduleColor: boolean;
+};
 
 interface EmployeeModalProps {
   mode: EmployeeModalMode;
   employee: EmployeeRow | null;
-  onSave: (input: EmployeeInput) => void;
+  onSave: (payload: EmployeeSavePayload) => void;
   onDelete?: () => void;
   onClose: () => void;
 }
@@ -36,6 +48,7 @@ export function EmployeeModal({
   onDelete,
   onClose,
 }: EmployeeModalProps) {
+  const { settings } = useSettings();
   const [form, setForm] = useState<EmployeeInput>(
     employee
       ? {
@@ -48,6 +61,20 @@ export function EmployeeModal({
         }
       : emptyForm()
   );
+  const [scheduleColor, setScheduleColor] = useState('#3B82F6');
+  const [useDefaultScheduleColor, setUseDefaultScheduleColor] = useState(true);
+
+  const syncScheduleColor = (nextForm: EmployeeInput, targetEmployee: EmployeeRow | null) => {
+    if (targetEmployee) {
+      const resolved = resolveEmployeeScheduleColor(targetEmployee, settings.positions);
+      const custom = settings.schedule.employeeScheduleColors?.[String(targetEmployee.id)];
+      setScheduleColor(resolved);
+      setUseDefaultScheduleColor(!custom);
+      return;
+    }
+    setScheduleColor(getPositionColor(nextForm.position, settings.positions));
+    setUseDefaultScheduleColor(true);
+  };
 
   useEffect(() => {
     if (mode === 'edit' && employee) {
@@ -59,26 +86,65 @@ export function EmployeeModal({
         hireDate: employee.hireDate,
         status: employee.status,
       });
+      syncScheduleColor(
+        {
+          name: employee.name,
+          position: employee.position,
+          hourlyWage: employee.hourlyWage,
+          phone: employee.phone,
+          hireDate: employee.hireDate,
+          status: employee.status,
+        },
+        employee
+      );
     } else if (mode === 'create') {
-      setForm(emptyForm());
+      const next = emptyForm();
+      setForm(next);
+      syncScheduleColor(next, null);
     }
-  }, [mode, employee]);
+  }, [mode, employee, settings.positions, settings.schedule.employeeScheduleColors]);
 
   const handlePositionChange = (position: EmployeePosition) => {
-    setForm((prev) => ({
-      ...prev,
-      position,
-      hourlyWage:
-        mode === 'create' || prev.hourlyWage === getDefaultHourlyWage(prev.position)
-          ? getDefaultHourlyWage(position)
-          : prev.hourlyWage,
-    }));
+    setForm((prev) => {
+      const next = {
+        ...prev,
+        position,
+        hourlyWage:
+          mode === 'create' || prev.hourlyWage === getDefaultHourlyWage(prev.position)
+            ? getDefaultHourlyWage(position)
+            : prev.hourlyWage,
+      };
+      if (useDefaultScheduleColor) {
+        setScheduleColor(getPositionColor(position, settings.positions));
+      }
+      return next;
+    });
+  };
+
+  const handleStatusChange = (status: EmployeeStatus) => {
+    setForm((prev) => {
+      const next = { ...prev, status };
+      if (useDefaultScheduleColor) {
+        if (employee) {
+          setScheduleColor(
+            resolveEmployeeScheduleColor({ ...employee, status }, settings.positions)
+          );
+        } else {
+          setScheduleColor(getPositionColor(next.position, settings.positions));
+        }
+      }
+      return next;
+    });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) return;
-    onSave({ ...form, name: form.name.trim() });
+    onSave({
+      input: { ...form, name: form.name.trim() },
+      scheduleColor,
+      useDefaultScheduleColor,
+    });
   };
 
   return (
@@ -137,12 +203,7 @@ export function EmployeeModal({
               </label>
               <select
                 value={form.status}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    status: e.target.value as EmployeeStatus,
-                  }))
-                }
+                onChange={(e) => handleStatusChange(e.target.value as EmployeeStatus)}
                 className="input-luxury"
               >
                 {STATUS_OPTIONS.map((status) => (
@@ -152,6 +213,53 @@ export function EmployeeModal({
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <label className="label-caps normal-case tracking-wide block mb-2">
+              스케줄표 색상
+            </label>
+            <div className="flex items-center gap-3">
+              <input
+                type="color"
+                value={scheduleColor}
+                onChange={(e) => {
+                  setScheduleColor(e.target.value);
+                  setUseDefaultScheduleColor(false);
+                }}
+                className="input-luxury h-[42px] p-1 w-16 shrink-0"
+                aria-label="스케줄표 색상"
+              />
+              <div
+                className="flex-1 rounded-xl border px-3 py-2 text-xs text-stone-600"
+                style={getEmployeeSwatchStyle(scheduleColor)}
+              >
+                근무 스케줄에서 이 색으로 표시됩니다
+              </div>
+            </div>
+            <button
+              type="button"
+              className="btn-ghost text-xs mt-2"
+              onClick={() => {
+                const previewEmployee = employee
+                  ? { ...employee, position: form.position, status: form.status }
+                  : {
+                      id: 0,
+                      name: form.name,
+                      position: form.position,
+                      status: form.status,
+                      hourlyWage: form.hourlyWage,
+                      phone: form.phone,
+                      hireDate: form.hireDate,
+                    };
+                setScheduleColor(
+                  resolveEmployeeScheduleColor(previewEmployee, settings.positions)
+                );
+                setUseDefaultScheduleColor(true);
+              }}
+            >
+              직책 기본색으로
+            </button>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

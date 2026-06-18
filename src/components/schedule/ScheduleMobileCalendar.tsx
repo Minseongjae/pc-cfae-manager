@@ -22,6 +22,7 @@ import {
 import { getShiftCardStyle } from '@/lib/shiftDisplay';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { useEmployees } from '@/contexts/EmployeesContext';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface ScheduleMobileCalendarProps {
   days: Date[];
@@ -81,14 +82,11 @@ function MobileShiftChip({
   readOnly: boolean;
 }) {
   const { employees } = useEmployees();
+  const { settings } = useSettings();
   const shiftTypes = useScheduleShiftTypes();
   const employee = findEmployeeByShiftName(employees, shift.name);
   const shiftType = findShiftTypeById(shiftTypes, shift.rowId);
-  const style = getShiftCardStyle(
-    shift,
-    shiftType,
-    employee ? { position: employee.position, status: employee.status } : undefined
-  );
+  const style = getShiftCardStyle(shift, shiftType, employee, settings.positions);
 
   return (
     <button

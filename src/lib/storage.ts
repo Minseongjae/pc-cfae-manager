@@ -7,6 +7,7 @@ import {
   updateShiftDuration,
 } from '@/lib/shiftUtils';
 import { findEmployeeByShiftName } from '@/lib/payroll';
+import { resolveEmployeeColor } from '@/lib/employeeColors';
 import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
 import {
   ACTUAL_WORK_CHANGED_EVENT,
@@ -24,7 +25,7 @@ import {
 } from '@/lib/payrollAdjustments';
 
 import type { DashboardStats, Employee, ShiftType } from '@/types';
-import { initDataStore, normalizeAppStorage, readCache, readLocalBackup, writeCache } from '@/lib/dataStore';
+import { initDataStore, normalizeAppStorage, readCache, readLocalBackup, writeCache, flushPush } from '@/lib/dataStore';
 import {
   createDefaultAppSettings,
   migrateAppSettings,
@@ -54,6 +55,7 @@ import { getMonthlyPayroll } from '@/lib/payroll';
 import {
   DEFAULT_SCHEDULE_SHIFT_TYPES,
   migrateShiftTypes,
+  normalizeHexColor,
   sortShiftTypes,
 } from '@/lib/scheduleShiftTypes';
 import {
@@ -307,9 +309,60 @@ export function deleteEmployee(id: number): EmployeeRow[] {
     (record) => record.employeeId !== id
   );
   data.employees = data.employees.filter((e) => e.id !== id);
+
+  const colorMap = { ...(data.appSettings.schedule.employeeScheduleColors ?? {}) };
+  delete colorMap[String(id)];
+  data.appSettings = {
+    ...data.appSettings,
+    schedule: {
+      ...data.appSettings.schedule,
+      employeeScheduleColors: colorMap,
+    },
+  };
+
   writeStorage(data);
   notifyEmployeesChanged();
+  notifySettingsChanged();
   return data.employees;
+}
+
+export function saveEmployeeScheduleColor(
+  employeeId: number,
+  color: string | null,
+  employee?: Pick<EmployeeRow, 'position' | 'status'>
+): void {
+  const data = readStorage();
+  const map = { ...(data.appSettings.schedule.employeeScheduleColors ?? {}) };
+  const key = String(employeeId);
+
+  if (color) {
+    const normalized = normalizeHexColor(color);
+    if (employee) {
+      const defaultColor = normalizeHexColor(
+        resolveEmployeeColor(employee.position, employee.status, data.appSettings.positions)
+      );
+      if (normalized === defaultColor) {
+        delete map[key];
+      } else {
+        map[key] = normalized;
+      }
+    } else {
+      map[key] = normalized;
+    }
+  } else {
+    delete map[key];
+  }
+
+  data.appSettings = {
+    ...data.appSettings,
+    schedule: {
+      ...data.appSettings.schedule,
+      employeeScheduleColors: map,
+    },
+  };
+  writeStorage(data);
+  notifySettingsChanged();
+  void flushPush();
 }
 
 function notifyActualWorkChanged(): void {

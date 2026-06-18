@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react';
 import type { EmployeeStatus } from '@/lib/employees';
 import type { PositionDefinition } from '@/lib/appSettings';
+import type { EmployeeRow } from '@/lib/appStorage';
 import { normalizeHexColor, shiftTypeCardStyle } from '@/lib/scheduleShiftTypes';
 import { getAppSettings } from '@/lib/storage';
 
@@ -56,6 +57,36 @@ export function getEmployeeColorCategory(
   if (status === 'leave') return 'vacation';
   if (status === 'resigned') return 'off';
   return POSITION_CATEGORY_MAP[position] ?? 'staff';
+}
+
+export function getEmployeeScheduleColorMap(): Record<string, string> {
+  return getAppSettings().schedule.employeeScheduleColors ?? {};
+}
+
+export function resolveEmployeeScheduleColor(
+  employee: Pick<EmployeeRow, 'id' | 'position' | 'status'>,
+  positions?: PositionDefinition[]
+): string {
+  const custom = getEmployeeScheduleColorMap()[String(employee.id)];
+  if (custom) return normalizeHexColor(custom);
+  return resolveEmployeeColor(employee.position, employee.status, positions);
+}
+
+export function resolveShiftScheduleColor(
+  shiftName: string,
+  employees: EmployeeRow[],
+  positions?: PositionDefinition[]
+): string {
+  const employee = employees.find(
+    (row) =>
+      row.name === shiftName ||
+      row.name.endsWith(shiftName) ||
+      row.name.includes(shiftName)
+  );
+  if (employee) {
+    return resolveEmployeeScheduleColor(employee, positions);
+  }
+  return '#9CA3AF';
 }
 
 export function getPositionColor(position: string, positions?: PositionDefinition[]): string {

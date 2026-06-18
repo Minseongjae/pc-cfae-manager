@@ -14,7 +14,7 @@ import {
   getEmployeeAvatarStyle,
   getEmployeeBadgeStyle,
   getEmployeeSwatchStyle,
-  resolveEmployeeColor,
+  resolveEmployeeScheduleColor,
 } from '@/lib/employeeColors';
 import { useSettings } from '@/contexts/SettingsContext';
 import type { PositionDefinition } from '@/lib/appSettings';
@@ -35,7 +35,7 @@ function StatusBadge({
       <span
         className="w-2 h-2 rounded-full"
         style={getEmployeeSwatchStyle(
-          resolveEmployeeColor(employee.position, employee.status, positions)
+          resolveEmployeeScheduleColor(employee, positions)
         )}
       />
       {getPositionLabel(employee.position)}
@@ -94,16 +94,21 @@ export function EmployeesPage() {
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4 md:space-y-5">
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-[10px] md:text-xs text-stone-500">
-          <span className="font-medium text-stone-600">직원 색상</span>
-          {settings.positions.map((position) => (
-            <span key={position.id} className="inline-flex items-center gap-1.5">
-              <span
-                className="w-3 h-3 rounded"
-                style={getEmployeeSwatchStyle(position.color)}
-              />
-              {position.label}
-            </span>
-          ))}
+          <span className="font-medium text-stone-600">스케줄 직원 색상</span>
+          {employees
+            .filter((employee) => employee.status !== 'resigned')
+            .slice(0, 8)
+            .map((employee) => (
+              <span key={employee.id} className="inline-flex items-center gap-1.5">
+                <span
+                  className="w-3 h-3 rounded"
+                  style={getEmployeeSwatchStyle(
+                    resolveEmployeeScheduleColor(employee, settings.positions)
+                  )}
+                />
+                {employee.name}
+              </span>
+            ))}
           <span className="inline-flex items-center gap-1.5">
             <span className="w-3 h-3 rounded" style={getEmployeeSwatchStyle('#9CA3AF')} />
             휴무

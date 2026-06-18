@@ -25,7 +25,10 @@ import type {
 } from '@/lib/appSettings';
 import type { SchoolSchedule } from '@/lib/appStorage';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { deleteShiftType, getAppSettings, ShiftTypeDeleteError } from '@/lib/storage';
+import { deleteShiftType, getAppSettings, ShiftTypeDeleteError, getEmployees, saveEmployeeScheduleColor } from '@/lib/storage';
+import {
+  resolveEmployeeScheduleColor,
+} from '@/lib/employeeColors';
 import {
   createShiftTypeId,
   moveShiftType,
@@ -80,6 +83,20 @@ export function SettingsPage() {
       return { ...current, shiftTypes: settings.shiftTypes };
     });
   }, [settings.shiftTypes, version]);
+
+  useEffect(() => {
+    setDraft((current) => {
+      const nextColors = settings.schedule.employeeScheduleColors ?? {};
+      const currentColors = current.schedule.employeeScheduleColors ?? {};
+      if (JSON.stringify(currentColors) === JSON.stringify(nextColors)) {
+        return current;
+      }
+      return {
+        ...current,
+        schedule: { ...current.schedule, employeeScheduleColors: nextColors },
+      };
+    });
+  }, [settings.schedule.employeeScheduleColors, version]);
 
   const patchDraft = (patch: Partial<AppSettings>) => {
     setDraft((current) => ({ ...current, ...patch }));
@@ -165,6 +182,7 @@ export function SettingsPage() {
             {active === 'schedule' && (
               <ScheduleSection
                 value={draft.schedule}
+                positions={draft.positions}
                 onChange={(schedule) => patchDraft({ schedule })}
               />
             )}
@@ -344,11 +362,15 @@ function PayrollSection({
 
 function ScheduleSection({
   value,
+  positions,
   onChange,
 }: {
   value: ScheduleSettings;
+  positions: PositionDefinition[];
   onChange: (v: ScheduleSettings) => void;
 }) {
+  const employees = getEmployees().filter((employee) => employee.status !== 'resigned');
+
   const updateSchool = (index: number, patch: Partial<SchoolSchedule>) => {
     const schoolSchedules = value.schoolSchedules.map((row, i) =>
       i === index ? { ...row, ...patch } : row
@@ -403,6 +425,58 @@ function ScheduleSection({
             <option value="no">비허용</option>
           </select>
         </Field>
+      </div>
+
+      <div className="pt-4 space-y-3 border-t border-stone-200">
+        <div>
+          <p className="text-xs font-medium text-stone-600">직원별 스케줄 색상</p>
+          <p className="text-[11px] text-stone-500 mt-1">
+            근무 스케줄표에서 직원별로 구분되는 색상입니다. 변경 시 즉시 저장됩니다.
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {employees.map((employee) => (
+            <div
+              key={employee.id}
+              className="flex items-center gap-2 rounded-xl border border-stone-200 px-3 py-2"
+            >
+              <input
+                type="color"
+                className="w-10 h-10 rounded-lg border border-stone-200 p-0.5 shrink-0"
+                value={resolveEmployeeScheduleColor(employee, positions)}
+                onChange={(e) => {
+                  saveEmployeeScheduleColor(employee.id, e.target.value, employee);
+                  onChange({
+                    ...value,
+                    employeeScheduleColors: {
+                      ...(getAppSettings().schedule.employeeScheduleColors ?? {}),
+                    },
+                  });
+                }}
+                aria-label={`${employee.name} 스케줄 색상`}
+              />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-stone-800 truncate">{employee.name}</p>
+                <p className="text-[11px] text-stone-500">{employee.position}</p>
+              </div>
+              <button
+                type="button"
+                className="btn-ghost text-[11px] shrink-0"
+                onClick={() => {
+                  saveEmployeeScheduleColor(employee.id, null, employee);
+                  onChange({
+                    ...value,
+                    employeeScheduleColors: {
+                      ...(getAppSettings().schedule.employeeScheduleColors ?? {}),
+                    },
+                  });
+                }}
+              >
+                기본
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="pt-2 space-y-3">

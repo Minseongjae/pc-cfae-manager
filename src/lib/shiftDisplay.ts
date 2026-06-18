@@ -1,7 +1,12 @@
 import type { CSSProperties } from 'react';
 import type { ScheduleShift } from '@/data/mockSchedule';
 import type { EmployeeStatus } from '@/lib/employees';
-import { EMPLOYEE_CARD_CLASSES } from '@/lib/employeeColors';
+import type { PositionDefinition } from '@/lib/appSettings';
+import type { EmployeeRow } from '@/lib/appStorage';
+import {
+  EMPLOYEE_CARD_CLASSES,
+  resolveEmployeeScheduleColor,
+} from '@/lib/employeeColors';
 import { shiftTypeCardStyle } from '@/lib/scheduleShiftTypes';
 import type { ShiftType } from '@/types';
 
@@ -35,19 +40,19 @@ function isVacationShift(
 export function getShiftCardStyle(
   shift: ScheduleShift,
   shiftType: ShiftType | undefined,
-  employee?: { position: string; status: EmployeeStatus }
+  employee?: Pick<EmployeeRow, 'id' | 'position' | 'status'>,
+  positions?: PositionDefinition[]
 ): CSSProperties {
   if (isOffShift(shift, shiftType)) {
-    const style = shiftTypeCardStyle('#9CA3AF');
-    return style;
+    return shiftTypeCardStyle('#9CA3AF');
   }
 
   if (isVacationShift(shift, shiftType, employee?.status)) {
     return shiftTypeCardStyle('#F97316');
   }
 
-  if (shiftType) {
-    return shiftTypeCardStyle(shiftType.color);
+  if (employee) {
+    return shiftTypeCardStyle(resolveEmployeeScheduleColor(employee, positions));
   }
 
   return shiftTypeCardStyle('#9CA3AF');
