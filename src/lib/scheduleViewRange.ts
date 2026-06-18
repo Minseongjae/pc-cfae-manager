@@ -7,6 +7,7 @@ import {
   format,
   isSameDay,
   isSameMonth,
+  isToday,
   startOfMonth,
   startOfWeek,
   subMonths,
@@ -137,5 +138,42 @@ export function shiftMatchesDay(shift: { year: number; month: number; day: numbe
 }
 
 export function isTodayDate(date: Date): boolean {
-  return isSameDay(date, new Date());
+  return isToday(date);
+}
+
+export function splitDaysIntoWeeks(days: Date[], weekStartsOn: 0 | 1): Date[][] {
+  if (days.length === 0) return [];
+
+  const weeks: Date[][] = [];
+  let current: Date[] = [];
+
+  for (const day of days) {
+    if (current.length > 0) {
+      const currentWeekStart = startOfWeek(current[0], { weekStartsOn }).getTime();
+      const dayWeekStart = startOfWeek(day, { weekStartsOn }).getTime();
+      if (dayWeekStart !== currentWeekStart) {
+        weeks.push(current);
+        current = [];
+      }
+    }
+    current.push(day);
+  }
+
+  if (current.length > 0) weeks.push(current);
+  return weeks;
+}
+
+export function findWeekIndexForDate(weeks: Date[][], target: Date): number {
+  const index = weeks.findIndex((week) => week.some((day) => isSameDay(day, target)));
+  return index >= 0 ? index : 0;
+}
+
+export function formatWeekChipLabel(week: Date[]): string {
+  if (week.length === 0) return '';
+  const start = week[0];
+  const end = week[week.length - 1];
+  if (isSameMonth(start, end)) {
+    return `${format(start, 'M/d')}~${format(end, 'd')}`;
+  }
+  return `${format(start, 'M/d')}~${format(end, 'M/d')}`;
 }

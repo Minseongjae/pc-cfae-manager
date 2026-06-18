@@ -1,8 +1,30 @@
 import { useScheduleShiftTypes } from '@/hooks/useScheduleShiftTypes';
 import { normalizeHexColor } from '@/lib/scheduleShiftTypes';
 
-export function CalendarLegend() {
+export function CalendarLegend({ compact = false }: { compact?: boolean }) {
   const shiftTypes = useScheduleShiftTypes();
+
+  if (compact) {
+    return (
+      <div className="flex items-center gap-2 overflow-x-auto px-1 py-1 text-[10px] text-stone-500">
+        {shiftTypes.slice(0, 4).map((type) => (
+          <span key={type.id} className="inline-flex items-center gap-1 shrink-0">
+            <span
+              className="w-2.5 h-2.5 rounded border"
+              style={{
+                backgroundColor: `${normalizeHexColor(type.color)}22`,
+                borderColor: normalizeHexColor(type.color),
+              }}
+            />
+            {type.name}
+          </span>
+        ))}
+        {shiftTypes.length > 4 && (
+          <span className="text-stone-400 shrink-0">+{shiftTypes.length - 4}</span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-1 text-[10px] md:text-xs text-stone-500">

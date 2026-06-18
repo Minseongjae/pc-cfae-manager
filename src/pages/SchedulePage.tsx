@@ -20,9 +20,12 @@ export function SchedulePage() {
   const { isAdmin, requireAdmin } = useAdminLockContext();
   const { settings } = useSettings();
   const [anchorDate, setAnchorDate] = useState(() => new Date());
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    settings.schedule.defaultView ?? 'monthly'
-  );
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    const prefersWeekly =
+      typeof window !== 'undefined' && window.matchMedia('(max-width: 768px)').matches;
+    if (prefersWeekly) return 'weekly';
+    return settings.schedule.defaultView ?? 'monthly';
+  });
   const [batchDeleteOpen, setBatchDeleteOpen] = useState(false);
 
   const weekStartsOn = settings.schedule.weekStartsOn ?? 1;
@@ -91,9 +94,9 @@ export function SchedulePage() {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {!isAdmin && (
-        <div className="px-4 pt-3 md:px-6 shrink-0">
-          <p className="text-xs text-stone-500 bg-stone-100/80 border border-stone-200 rounded-xl px-3 py-2">
-            근무표는 조회만 가능합니다. 수정하려면 관리자 인증이 필요합니다.
+        <div className="px-3 pt-2 md:px-6 md:pt-3 shrink-0">
+          <p className="text-[11px] md:text-xs text-stone-500 bg-stone-100/80 border border-stone-200 rounded-xl px-3 py-1.5 md:py-2">
+            조회 전용 · 수정은 관리자 인증 필요
           </p>
         </div>
       )}
@@ -114,6 +117,7 @@ export function SchedulePage() {
 
       <ScheduleCalendar
         days={visibleDays}
+        weekStartsOn={weekStartsOn}
         shifts={shifts}
         draggingId={draggingId}
         dropTarget={dropTarget}

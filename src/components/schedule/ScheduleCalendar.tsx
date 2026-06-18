@@ -13,9 +13,11 @@ import {
   KOREAN_WEEKDAYS,
 } from '@/lib/koreanHolidays';
 import { scheduleDateKey, shiftMatchesDay } from '@/lib/scheduleViewRange';
+import { ScheduleMobileAgenda } from '@/components/schedule/ScheduleMobileAgenda';
 
 interface ScheduleCalendarProps {
   days: Date[];
+  weekStartsOn?: 0 | 1;
   shifts: ScheduleShift[];
   draggingId: string | null;
   dropTarget: string | null;
@@ -84,6 +86,7 @@ function cellBackgroundClasses(day: Date, today: boolean): string {
 
 export function ScheduleCalendar({
   days,
+  weekStartsOn = 1,
   shifts,
   draggingId,
   dropTarget,
@@ -98,9 +101,25 @@ export function ScheduleCalendar({
 }: ScheduleCalendarProps) {
   const isMobile = useIsMobile();
   const shiftTypes = useScheduleShiftTypes();
-  const dayCellWidth = isMobile ? 92 : DAY_CELL_WIDTH;
-  const rowLabelWidth = isMobile ? 52 : ROW_LABEL_WIDTH;
-  const headerHeight = isMobile ? 58 : HEADER_HEIGHT;
+
+  if (isMobile) {
+    return (
+      <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+        <ScheduleMobileAgenda
+          days={days}
+          weekStartsOn={weekStartsOn}
+          shifts={shifts}
+          readOnly={readOnly}
+          onEditShift={onEditShift}
+          onCreateInCell={onCreateInCell}
+        />
+      </div>
+    );
+  }
+
+  const dayCellWidth = DAY_CELL_WIDTH;
+  const rowLabelWidth = ROW_LABEL_WIDTH;
+  const headerHeight = HEADER_HEIGHT;
 
   const shiftsByDayAndRow = useMemo(() => {
     const map = new Map<string, ScheduleShift[]>();
@@ -128,7 +147,7 @@ export function ScheduleCalendar({
 
   return (
     <div className="flex-1 overflow-hidden p-2 md:p-4 min-h-0 flex flex-col gap-2">
-      <CalendarLegend />
+      <CalendarLegend compact={false} />
       <div className="card-elevated flex-1 flex overflow-hidden min-h-0">
         <div
           className="shrink-0 flex flex-col border-r border-stone-200 bg-stone-50/50"

@@ -30,16 +30,17 @@ export function ScheduleHeader({
   readOnly = false,
 }: ScheduleHeaderProps) {
   return (
-    <header className="page-header px-4 py-4 md:px-6 shrink-0">
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="hidden md:block">
-            <h1 className="heading-display text-lg md:text-xl">근무 스케줄</h1>
-            <p className="text-sm text-stone-500 mt-0.5 font-light">{periodLabel}</p>
+    <header className="page-header px-3 py-3 md:px-6 md:py-4 shrink-0">
+      <div className="flex flex-col gap-2.5 md:gap-4">
+        <div className="flex items-center justify-between gap-2">
+          <div className="min-w-0 flex-1">
+            <h1 className="hidden md:block heading-display text-lg md:text-xl">근무 스케줄</h1>
+            <p className="text-sm font-medium text-stone-700 md:text-stone-500 md:font-light truncate">
+              {periodLabel}
+            </p>
           </div>
-          <p className="md:hidden text-sm font-medium text-stone-600">{periodLabel}</p>
 
-          <div className="flex items-center gap-1 bg-stone-100 rounded-xl p-1 self-start">
+          <div className="flex items-center gap-1 bg-stone-100 rounded-xl p-1 shrink-0">
             <button
               type="button"
               onClick={onPrevPeriod}
@@ -48,7 +49,7 @@ export function ScheduleHeader({
             >
               <ChevronLeft size={18} />
             </button>
-            <button type="button" onClick={onToday} className="btn-secondary text-xs md:text-sm touch-target">
+            <button type="button" onClick={onToday} className="btn-secondary text-xs touch-target px-2.5">
               오늘
             </button>
             <button
@@ -62,14 +63,14 @@ export function ScheduleHeader({
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="segment-control w-full sm:w-auto overflow-x-auto">
+        <div className="flex items-center gap-2">
+          <div className="segment-control flex-1 min-w-0 overflow-x-auto">
             {(['monthly', 'weekly', 'daily'] as ViewMode[]).map((mode) => (
               <button
                 key={mode}
                 type="button"
                 onClick={() => onViewModeChange(mode)}
-                className={`segment-item touch-segment shrink-0 ${
+                className={`segment-item touch-segment shrink-0 text-xs md:text-sm ${
                   viewMode === mode ? 'segment-item-active' : ''
                 }`}
               >
@@ -79,24 +80,26 @@ export function ScheduleHeader({
           </div>
 
           {!readOnly && (
-            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <div className="flex items-center gap-1.5 shrink-0">
               {onBatchDelete && (
                 <button
                   type="button"
-                  className="btn-secondary w-full sm:w-auto touch-target justify-center text-rose-700 border-rose-200 hover:bg-rose-50"
+                  className="btn-secondary touch-target p-2.5 text-rose-700 border-rose-200 md:px-3 md:py-2"
                   onClick={onBatchDelete}
+                  aria-label="일괄 삭제"
                 >
                   <Trash2 size={16} strokeWidth={2} />
-                  일괄 삭제
+                  <span className="hidden md:inline ml-1.5 text-sm">일괄 삭제</span>
                 </button>
               )}
               <button
                 type="button"
-                className="btn-primary w-full sm:w-auto touch-target justify-center"
+                className="btn-primary touch-target p-2.5 md:px-3 md:py-2"
                 onClick={onCreateShift}
+                aria-label="근무 추가"
               >
                 <Plus size={16} strokeWidth={2} />
-                근무 추가
+                <span className="hidden md:inline ml-1.5 text-sm">근무 추가</span>
               </button>
             </div>
           )}
