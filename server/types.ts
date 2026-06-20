@@ -73,6 +73,7 @@ export interface NoticeRow {
 
 export interface InventoryItem {
   id: string;
+  categoryId: string;
   name: string;
   currentStock: number;
   minStock: number;

@@ -1,12 +1,13 @@
 import type { CSSProperties } from 'react';
 import type { ScheduleShift } from '@/data/mockSchedule';
 import type { EmployeeStatus } from '@/lib/employees';
-import type { PositionDefinition } from '@/lib/appSettings';
+import type { PositionDefinition, ScheduleColorMode } from '@/lib/appSettings';
 import type { EmployeeRow } from '@/lib/appStorage';
 import {
   EMPLOYEE_CARD_CLASSES,
   resolveEmployeeScheduleColor,
 } from '@/lib/employeeColors';
+import { getShiftCardMinHeight } from '@/lib/shiftUtils';
 import { shiftTypeCardStyle } from '@/lib/scheduleShiftTypes';
 import type { ShiftType } from '@/types';
 
@@ -41,21 +42,30 @@ export function getShiftCardStyle(
   shift: ScheduleShift,
   shiftType: ShiftType | undefined,
   employee?: Pick<EmployeeRow, 'id' | 'position' | 'status'>,
-  positions?: PositionDefinition[]
+  positions?: PositionDefinition[],
+  colorMode: ScheduleColorMode = 'employee',
+  compact = false
 ): CSSProperties {
+  let colorStyle: CSSProperties;
+
   if (isOffShift(shift, shiftType)) {
-    return shiftTypeCardStyle('#9CA3AF');
+    colorStyle = shiftTypeCardStyle('#9CA3AF');
+  } else if (isVacationShift(shift, shiftType, employee?.status)) {
+    colorStyle = shiftTypeCardStyle('#F97316');
+  } else if (colorMode === 'shiftType' && shiftType) {
+    colorStyle = shiftTypeCardStyle(shiftType.color);
+  } else if (employee) {
+    colorStyle = shiftTypeCardStyle(resolveEmployeeScheduleColor(employee, positions));
+  } else if (shiftType) {
+    colorStyle = shiftTypeCardStyle(shiftType.color);
+  } else {
+    colorStyle = shiftTypeCardStyle('#9CA3AF');
   }
 
-  if (isVacationShift(shift, shiftType, employee?.status)) {
-    return shiftTypeCardStyle('#F97316');
-  }
-
-  if (employee) {
-    return shiftTypeCardStyle(resolveEmployeeScheduleColor(employee, positions));
-  }
-
-  return shiftTypeCardStyle('#9CA3AF');
+  return {
+    ...colorStyle,
+    minHeight: getShiftCardMinHeight(shift.duration, compact),
+  };
 }
 
 export function getShiftCardColorClass(

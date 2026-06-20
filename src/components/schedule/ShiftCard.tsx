@@ -47,10 +47,11 @@ export function ShiftCard({
         shift,
         shiftType,
         employee,
-        settings.positions
+        settings.positions,
+        settings.schedule.scheduleColorMode ?? 'employee'
       ),
     };
-  }, [employees, shift, shiftTypes, settings.positions]);
+  }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
   const didDragRef = useRef(false);
 

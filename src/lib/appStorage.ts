@@ -34,6 +34,7 @@ export type PurchaseOrderStatus = 'scheduled' | 'ordered' | 'received';
 
 export interface InventoryItem {
   id: string;
+  categoryId?: string;
   name: string;
   currentStock: number;
   minStock: number;

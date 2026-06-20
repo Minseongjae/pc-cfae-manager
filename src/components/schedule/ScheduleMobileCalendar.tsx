@@ -86,7 +86,15 @@ function MobileShiftChip({
   const shiftTypes = useScheduleShiftTypes();
   const employee = findEmployeeByShiftName(employees, shift.name);
   const shiftType = findShiftTypeById(shiftTypes, shift.rowId);
-  const style = getShiftCardStyle(shift, shiftType, employee, settings.positions);
+  const colorMode = settings.schedule.scheduleColorMode ?? 'employee';
+  const style = getShiftCardStyle(
+    shift,
+    shiftType,
+    employee,
+    settings.positions,
+    colorMode,
+    true
+  );
 
   return (
     <button

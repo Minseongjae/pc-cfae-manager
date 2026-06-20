@@ -6,6 +6,11 @@ import {
   migratePurchaseOrderCategories,
   type PurchaseOrderCategory,
 } from '@/lib/purchaseOrders';
+import {
+  DEFAULT_INVENTORY_CATEGORIES,
+  migrateInventoryCategories,
+  type InventoryCategory,
+} from '@/lib/inventoryCategories';
 import { normalizeOptionalNumber } from '@/lib/numericInput';
 
 export const SETTINGS_CHANGED_EVENT = 'settings-changed';
@@ -39,6 +44,8 @@ export type ResolvedPayrollSettings = {
   notes: string;
 };
 
+export type ScheduleColorMode = 'employee' | 'shiftType';
+
 export interface ScheduleSettings {
   weekStartsOn: 0 | 1;
   defaultView: 'monthly' | 'weekly' | 'daily';
@@ -47,6 +54,8 @@ export interface ScheduleSettings {
   schoolSchedules: SchoolSchedule[];
   /** employee id (string) -> hex color for schedule cards */
   employeeScheduleColors?: Record<string, string>;
+  /** Schedule card color source */
+  scheduleColorMode?: ScheduleColorMode;
 }
 
 export interface PositionDefinition {
@@ -75,6 +84,7 @@ export interface AppSettings {
   theme: ThemeSettings;
   security: SecuritySettings;
   purchaseOrderCategories: PurchaseOrderCategory[];
+  inventoryCategories: InventoryCategory[];
 }
 
 export const DEFAULT_POSITIONS: PositionDefinition[] = [
@@ -117,6 +127,7 @@ export function createDefaultAppSettings(
       maxScheduleYear: 2030,
       schoolSchedules,
       employeeScheduleColors: {},
+      scheduleColorMode: 'employee' as ScheduleColorMode,
     },
     positions: DEFAULT_POSITIONS.map((p) => ({ ...p })),
     shiftTypes,
@@ -129,6 +140,7 @@ export function createDefaultAppSettings(
       employeePasswordHash: '',
     },
     purchaseOrderCategories: DEFAULT_PURCHASE_ORDER_CATEGORIES.map((row) => ({ ...row })),
+    inventoryCategories: DEFAULT_INVENTORY_CATEGORIES.map((row) => ({ ...row })),
   };
 }
 
@@ -167,6 +179,11 @@ export function migrateAppSettings(
         typeof input.schedule.employeeScheduleColors === 'object'
           ? input.schedule.employeeScheduleColors
           : defaults.schedule.employeeScheduleColors ?? {},
+      scheduleColorMode:
+        input.schedule?.scheduleColorMode === 'shiftType' ||
+        input.schedule?.scheduleColorMode === 'employee'
+          ? input.schedule.scheduleColorMode
+          : defaults.schedule.scheduleColorMode ?? 'employee',
     },
     positions: migratePositions(
       input.positions?.length && Array.isArray(input.positions)
@@ -186,6 +203,9 @@ export function migrateAppSettings(
     },
     purchaseOrderCategories: migratePurchaseOrderCategories(
       input.purchaseOrderCategories ?? defaults.purchaseOrderCategories
+    ),
+    inventoryCategories: migrateInventoryCategories(
+      input.inventoryCategories ?? defaults.inventoryCategories
     ),
   };
 }

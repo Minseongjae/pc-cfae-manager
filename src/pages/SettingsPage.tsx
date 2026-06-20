@@ -425,15 +425,35 @@ function ScheduleSection({
             <option value="no">비허용</option>
           </select>
         </Field>
+        <Field label="스케줄 색상 기준">
+          <select
+            className="input-luxury"
+            value={value.scheduleColorMode ?? 'employee'}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                scheduleColorMode: e.target.value as ScheduleSettings['scheduleColorMode'],
+              })
+            }
+          >
+            <option value="employee">직원별 색상</option>
+            <option value="shiftType">근무유형별 색상</option>
+          </select>
+        </Field>
       </div>
 
       <div className="pt-4 space-y-3 border-t border-stone-200">
         <div>
-          <p className="text-xs font-medium text-stone-600">직원별 스케줄 색상</p>
+          <p className="text-xs font-medium text-stone-600">
+            {value.scheduleColorMode === 'shiftType' ? '근무유형 색상' : '직원별 스케줄 색상'}
+          </p>
           <p className="text-[11px] text-stone-500 mt-1">
-            근무 스케줄표에서 직원별로 구분되는 색상입니다. 변경 시 즉시 저장됩니다.
+            {value.scheduleColorMode === 'shiftType'
+              ? '근무유형 관리에서 색상을 변경할 수 있습니다. 스케줄표에는 근무유형별 색상이 적용됩니다.'
+              : '근무 스케줄표에서 직원별로 구분되는 색상입니다. 변경 시 즉시 저장됩니다.'}
           </p>
         </div>
+        {value.scheduleColorMode !== 'shiftType' && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           {employees.map((employee) => (
             <div
@@ -477,6 +497,7 @@ function ScheduleSection({
             </div>
           ))}
         </div>
+        )}
       </div>
 
       <div className="pt-2 space-y-3">

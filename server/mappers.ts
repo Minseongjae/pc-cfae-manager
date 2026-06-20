@@ -261,12 +261,34 @@ export function parseSchoolSchedules(value: string): SchoolSchedule[] {
   }
 }
 
+const INVENTORY_CATEGORY_IDS = ['inv-1', 'inv-2', 'inv-3', 'inv-4'];
+const LEGACY_INVENTORY_HEADERS = [
+  'id',
+  'name',
+  'current_stock',
+  'min_stock',
+  'expiry_date',
+  'updated_at',
+];
+
 export function inventoryFromRow(headers: string[], row: string[]): InventoryItem | null {
-  const raw = rowToObject(headers, row);
-  if (!raw.id || !raw.name) return null;
+  if (!row[0]) return null;
+
+  const categorySlot = row[1] ?? '';
+  const isNewFormat =
+    headers.includes('category_id') &&
+    INVENTORY_CATEGORY_IDS.includes(categorySlot);
+
+  const raw = rowToObject(isNewFormat ? headers : LEGACY_INVENTORY_HEADERS, row);
+  if (!raw.id) return null;
+
+  const name = isNewFormat ? raw.name : raw.name || categorySlot;
+  if (!name) return null;
+
   return {
     id: raw.id,
-    name: raw.name,
+    categoryId: isNewFormat ? categorySlot : 'inv-1',
+    name,
     currentStock: num(raw.current_stock),
     minStock: num(raw.min_stock),
     expiryDate: raw.expiry_date || '',
@@ -277,6 +299,7 @@ export function inventoryFromRow(headers: string[], row: string[]): InventoryIte
 export function inventoryToRow(item: InventoryItem): string[] {
   return [
     item.id,
+    item.categoryId || 'inv-1',
     item.name,
     String(item.currentStock),
     String(item.minStock),

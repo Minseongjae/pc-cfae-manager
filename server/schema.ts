@@ -64,6 +64,7 @@ export const HEADERS = {
   settings: ['key', 'value', 'updated_at'],
   inventory: [
     'id',
+    'category_id',
     'name',
     'current_stock',
     'min_stock',

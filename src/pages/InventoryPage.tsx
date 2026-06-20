@@ -1,13 +1,18 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, AlertTriangle } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Plus, Pencil, AlertTriangle, Check, X } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import {
   deleteInventoryItem,
+  getInventoryCategories,
   getInventoryItems,
+  saveInventoryCategoryName,
   saveInventoryItem,
   type InventoryItem,
 } from '@/lib/storage';
 import { INVENTORY_CHANGED_EVENT, inventoryStatusLabel, isLowStock } from '@/lib/inventory';
+import { SETTINGS_CHANGED_EVENT } from '@/lib/appSettings';
+import { DATA_SYNC_CHANGED_EVENT } from '@/lib/dataStore';
+import type { InventoryCategoryId, InventoryCategory } from '@/lib/inventoryCategories';
 
 const emptyForm = {
   name: '',
@@ -17,18 +22,40 @@ const emptyForm = {
 };
 
 export function InventoryPage() {
-  const [items, setItems] = useState<InventoryItem[]>(getInventoryItems);
+  const [categories, setCategories] = useState<InventoryCategory[]>(() => getInventoryCategories());
+  const [activeCategory, setActiveCategory] = useState<InventoryCategoryId>('inv-1');
+  const [items, setItems] = useState<InventoryItem[]>(() => getInventoryItems('inv-1'));
   const [editing, setEditing] = useState<InventoryItem | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [showForm, setShowForm] = useState(false);
+  const [editingTabId, setEditingTabId] = useState<InventoryCategoryId | null>(null);
+  const [tabNameDraft, setTabNameDraft] = useState('');
+
+  const refresh = useCallback(() => {
+    setCategories(getInventoryCategories());
+    setItems([...getInventoryItems(activeCategory)]);
+  }, [activeCategory]);
 
   useEffect(() => {
-    const sync = () => setItems(getInventoryItems());
-    window.addEventListener(INVENTORY_CHANGED_EVENT, sync);
-    return () => window.removeEventListener(INVENTORY_CHANGED_EVENT, sync);
-  }, []);
+    refresh();
+  }, [refresh]);
+
+  useEffect(() => {
+    const handler = () => refresh();
+    window.addEventListener(INVENTORY_CHANGED_EVENT, handler);
+    window.addEventListener(SETTINGS_CHANGED_EVENT, handler);
+    window.addEventListener(DATA_SYNC_CHANGED_EVENT, handler);
+    return () => {
+      window.removeEventListener(INVENTORY_CHANGED_EVENT, handler);
+      window.removeEventListener(SETTINGS_CHANGED_EVENT, handler);
+      window.removeEventListener(DATA_SYNC_CHANGED_EVENT, handler);
+    };
+  }, [refresh]);
 
   const lowStockCount = useMemo(() => items.filter(isLowStock).length, [items]);
+
+  const activeCategoryLabel =
+    categories.find((row) => row.id === activeCategory)?.name ?? activeCategory;
 
   const sortedItems = useMemo(() => {
     return [...items].sort((a, b) => {
@@ -60,27 +87,98 @@ export function InventoryPage() {
     if (!form.name.trim()) return;
     saveInventoryItem({
       id: editing?.id,
+      categoryId: editing?.categoryId ?? activeCategory,
       ...form,
     });
     setShowForm(false);
     setEditing(null);
     setForm(emptyForm);
+    refresh();
   };
 
   const handleDelete = (id: string) => {
     if (!confirm('이 상품을 삭제할까요?')) return;
     deleteInventoryItem(id);
     setShowForm(false);
+    refresh();
+  };
+
+  const startTabRename = (category: InventoryCategory) => {
+    setEditingTabId(category.id);
+    setTabNameDraft(category.name);
+  };
+
+  const commitTabRename = () => {
+    if (!editingTabId) return;
+    saveInventoryCategoryName(editingTabId, tabNameDraft);
+    setEditingTabId(null);
+    setTabNameDraft('');
+    refresh();
+  };
+
+  const cancelTabRename = () => {
+    setEditingTabId(null);
+    setTabNameDraft('');
   };
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <PageHeader title="재고 관리" subtitle={`총 ${items.length}개 · 부족 ${lowStockCount}개`}>
+      <PageHeader
+        title="재고 관리"
+        subtitle={`${activeCategoryLabel} · 총 ${items.length}개 · 부족 ${lowStockCount}개`}
+      >
         <button type="button" className="btn-primary touch-target" onClick={openCreate}>
           <Plus size={16} />
           상품 추가
         </button>
       </PageHeader>
+
+      <div className="shrink-0 px-4 md:px-6 pt-3 border-b border-stone-200/80 bg-white/80">
+        <div className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1">
+          {categories.map((category) => {
+            const isActive = category.id === activeCategory;
+            const isEditing = editingTabId === category.id;
+
+            return (
+              <div key={category.id} className="flex items-center gap-1 shrink-0">
+                {isEditing ? (
+                  <div className="flex items-center gap-1 bg-stone-100 rounded-xl px-2 py-1.5">
+                    <input
+                      className="input-luxury text-xs w-[7.5rem] md:w-28 py-1.5"
+                      value={tabNameDraft}
+                      onChange={(e) => setTabNameDraft(e.target.value)}
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') commitTabRename();
+                        if (e.key === 'Escape') cancelTabRename();
+                      }}
+                    />
+                    <button type="button" className="p-1 text-emerald-600" onClick={commitTabRename}>
+                      <Check size={14} />
+                    </button>
+                    <button type="button" className="p-1 text-stone-400" onClick={cancelTabRename}>
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    className={`px-3.5 py-2 rounded-xl text-sm font-medium transition-colors touch-target ${
+                      isActive
+                        ? 'bg-stone-800 text-white shadow-sm'
+                        : 'bg-stone-100 text-stone-600 hover:bg-stone-200'
+                    }`}
+                    onClick={() => setActiveCategory(category.id)}
+                    onDoubleClick={() => startTabRename(category)}
+                  >
+                    {category.name}
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 md:px-6 md:py-6 space-y-4">
         {lowStockCount > 0 && (

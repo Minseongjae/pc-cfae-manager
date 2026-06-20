@@ -45,6 +45,11 @@ import type {
 } from '@/lib/appStorage';
 import { isLowStock, INVENTORY_CHANGED_EVENT } from '@/lib/inventory';
 import {
+  migrateInventoryCategories,
+  normalizeInventoryCategoryId,
+  type InventoryCategory,
+} from '@/lib/inventoryCategories';
+import {
   PURCHASE_ORDERS_CHANGED_EVENT,
   migratePurchaseOrderCategories,
   normalizePurchaseCategoryId,
@@ -930,8 +935,29 @@ function createId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-export function getInventoryItems(): InventoryItem[] {
-  return readStorage().inventoryItems;
+export function getInventoryItems(categoryId?: string): InventoryItem[] {
+  const items = readStorage().inventoryItems.map((item) => ({
+    ...item,
+    categoryId: normalizeInventoryCategoryId(item.categoryId),
+  }));
+  if (!categoryId) return items;
+  const normalized = normalizeInventoryCategoryId(categoryId);
+  return items.filter((item) => item.categoryId === normalized);
+}
+
+export function getInventoryCategories(): InventoryCategory[] {
+  return migrateInventoryCategories(readStorage().appSettings.inventoryCategories);
+}
+
+export function saveInventoryCategoryName(id: string, name: string): InventoryCategory[] {
+  const data = readStorage();
+  const categories = migrateInventoryCategories(data.appSettings.inventoryCategories).map((row) =>
+    row.id === id ? { ...row, name: name.trim() || row.name } : row
+  );
+  data.appSettings = { ...data.appSettings, inventoryCategories: categories };
+  writeStorage(data);
+  notifySettingsChanged();
+  return categories;
 }
 
 export function saveInventoryItem(
@@ -941,6 +967,7 @@ export function saveInventoryItem(
   const now = new Date().toISOString();
   const item: InventoryItem = {
     id: input.id ?? createId('inv'),
+    categoryId: normalizeInventoryCategoryId(input.categoryId),
     name: input.name.trim(),
     currentStock: Math.max(0, input.currentStock),
     minStock: Math.max(0, input.minStock),

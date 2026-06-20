@@ -54,6 +54,7 @@ export interface RemoteDataPayload {
   appSettings: AppSettings;
   inventoryItems: Array<{
     id: string;
+    categoryId: string;
     name: string;
     currentStock: number;
     minStock: number;
@@ -237,6 +238,7 @@ export function toRemotePayload(data: AppStorage): Omit<RemoteDataPayload, 'sync
     appSettings: data.appSettings,
     inventoryItems: data.inventoryItems.map((item) => ({
       id: item.id,
+      categoryId: item.categoryId || 'inv-1',
       name: item.name,
       currentStock: item.currentStock,
       minStock: item.minStock,
@@ -341,6 +343,7 @@ export function fromRemotePayload(
     })),
     inventoryItems: (remote.inventoryItems ?? []).map((item) => ({
       id: item.id,
+      categoryId: item.categoryId || 'inv-1',
       name: item.name,
       currentStock: item.currentStock,
       minStock: item.minStock,

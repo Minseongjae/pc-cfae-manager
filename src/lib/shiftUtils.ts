@@ -21,6 +21,24 @@ export function formatDurationLabel(hours: number): string {
   return String(Math.round(hours)).padStart(2, '0');
 }
 
+export function parseShiftDurationHours(duration: string | number | undefined): number {
+  if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
+    return duration;
+  }
+  const parsed = parseInt(String(duration ?? ''), 10);
+  if (Number.isFinite(parsed) && parsed > 0) return parsed;
+  return 1;
+}
+
+/** Visual card height scaled by shift duration (hours). */
+export function getShiftCardMinHeight(duration: string | number | undefined, compact = false): number {
+  const hours = parseShiftDurationHours(duration);
+  const base = compact ? 34 : 48;
+  const pxPerHour = compact ? 9 : 16;
+  const max = compact ? 110 : 176;
+  return Math.min(base + hours * pxPerHour, max);
+}
+
 export function updateShiftDuration(startTime: string, endTime: string): {
   endTime: string;
   duration: string;
