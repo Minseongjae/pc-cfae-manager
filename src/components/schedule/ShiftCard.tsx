@@ -113,7 +113,7 @@ export function ShiftCard({
       onClick={handleClick}
       style={cardStyle}
       className={`group relative border shadow-sm select-none transition-all duration-200 ${colorClass} ${
-        compact ? 'rounded-lg px-1.5 py-1.5 text-[10px] leading-tight' : 'rounded-xl px-3 py-2.5 text-xs leading-snug'
+        compact ? 'rounded-lg px-1.5 py-1 text-[10px] leading-tight' : 'rounded-lg px-2 py-1.5 text-[11px] leading-tight'
       } ${
         readOnly
           ? 'cursor-default'
@@ -136,15 +136,15 @@ export function ShiftCard({
         title="드래그하여 이동"
       />
       )}
-      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-[11px] pr-0' : 'text-sm pr-4'}`}>
+      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-[11px] pr-0' : 'text-xs pr-3'}`}>
         {shift.name}
       </div>
-      <div className={`font-medium opacity-90 ${compact ? 'text-[10px] mt-0.5' : 'mt-1 text-[11px] md:text-xs'}`}>
-        {shift.startTime} – {shift.endTime}
+      <div className={`font-medium opacity-90 truncate ${compact ? 'text-[10px] mt-0.5' : 'mt-0.5 text-[10px]'}`}>
+        {shift.startTime}–{shift.endTime}
+        {!compact && (
+          <span className="opacity-75"> · {parseInt(String(shift.duration), 10) || 1}h</span>
+        )}
       </div>
-      {!compact && (
-      <div className="opacity-75 text-[10px] md:text-[11px] mt-0.5">{shift.duration}h</div>
-      )}
 
       {!readOnly && !compact && (
       <div

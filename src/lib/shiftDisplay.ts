@@ -7,7 +7,7 @@ import {
   EMPLOYEE_CARD_CLASSES,
   resolveEmployeeScheduleColor,
 } from '@/lib/employeeColors';
-import { getShiftCardMinHeight } from '@/lib/shiftUtils';
+import { getShiftDurationAccentPx } from '@/lib/shiftUtils';
 import { shiftTypeCardStyle } from '@/lib/scheduleShiftTypes';
 import type { ShiftType } from '@/types';
 
@@ -44,7 +44,7 @@ export function getShiftCardStyle(
   employee?: Pick<EmployeeRow, 'id' | 'position' | 'status'>,
   positions?: PositionDefinition[],
   colorMode: ScheduleColorMode = 'employee',
-  compact = false
+  _compact = false
 ): CSSProperties {
   let colorStyle: CSSProperties;
 
@@ -64,7 +64,7 @@ export function getShiftCardStyle(
 
   return {
     ...colorStyle,
-    minHeight: getShiftCardMinHeight(shift.duration, compact),
+    borderBottomWidth: getShiftDurationAccentPx(shift.duration),
   };
 }
 

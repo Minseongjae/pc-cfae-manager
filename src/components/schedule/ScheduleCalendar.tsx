@@ -33,7 +33,7 @@ interface ScheduleCalendarProps {
 
 const DAY_CELL_WIDTH = 128;
 const ROW_LABEL_WIDTH = 72;
-const ROW_MIN_HEIGHT = 112;
+const ROW_MIN_HEIGHT = 72;
 const HEADER_HEIGHT = 64;
 
 function dayHeaderClasses(day: Date, today: boolean): string {
@@ -169,7 +169,7 @@ export function ScheduleCalendar({
           {shiftTypes.map((row) => (
             <div
               key={row.id}
-              className="flex items-start px-2 py-3 md:px-3 md:py-4 border-b border-stone-200/80 last:border-b-0"
+              className="flex items-start px-2 py-2 md:px-2.5 md:py-2.5 border-b border-stone-200/80 last:border-b-0"
               style={{ minHeight: ROW_MIN_HEIGHT }}
             >
               <span
@@ -251,7 +251,7 @@ export function ScheduleCalendar({
                         const shiftId = e.dataTransfer.getData('text/shift-id');
                         if (shiftId) onDrop(shiftId, day, row.id);
                       }}
-                      className={`shrink-0 border-r border-stone-100 p-1.5 md:p-2 space-y-1.5 md:space-y-2 transition-all duration-200 group/cell ${cellBackgroundClasses(day, today)} ${
+                      className={`shrink-0 border-r border-stone-100 p-1 md:p-1.5 space-y-1 transition-all duration-200 group/cell ${cellBackgroundClasses(day, today)} ${
                         today ? 'ring-1 ring-inset ring-stone-700/20' : ''
                       } ${isDropTarget ? 'bg-amber-500/10 ring-2 ring-inset ring-amber-400/40' : ''}`}
                     >
@@ -271,7 +271,7 @@ export function ScheduleCalendar({
                         <button
                           type="button"
                           onClick={() => onCreateInCell(day, row.id)}
-                          className="w-full h-full min-h-[48px] md:min-h-[52px] rounded-xl border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
+                          className="w-full h-full min-h-[32px] md:min-h-[36px] rounded-lg border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
                         >
                           + 추가
                         </button>

@@ -105,12 +105,12 @@ function MobileShiftChip({
         if (!readOnly) onEdit(shift);
       }}
       style={style}
-      className={`w-full text-left rounded-md border px-1 py-1 shadow-sm ${
+      className={`w-full text-left rounded-md border px-1 py-0.5 shadow-sm ${
         readOnly ? 'cursor-default' : 'active:opacity-80'
       }`}
     >
-      <div className="font-semibold text-[11px] leading-tight truncate">{shift.name}</div>
-      <div className="text-[10px] leading-tight opacity-90 mt-0.5">
+      <div className="font-semibold text-[10px] leading-tight truncate">{shift.name}</div>
+      <div className="text-[9px] leading-tight opacity-90 truncate">
         {shift.startTime}–{shift.endTime}
       </div>
     </button>

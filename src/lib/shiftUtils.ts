@@ -30,13 +30,10 @@ export function parseShiftDurationHours(duration: string | number | undefined): 
   return 1;
 }
 
-/** Visual card height scaled by shift duration (hours). */
-export function getShiftCardMinHeight(duration: string | number | undefined, compact = false): number {
+/** Subtle duration cue (px) — kept small so cards stay compact for overview. */
+export function getShiftDurationAccentPx(duration: string | number | undefined): number {
   const hours = parseShiftDurationHours(duration);
-  const base = compact ? 32 : 42;
-  const pxPerHour = compact ? 3 : 4;
-  const max = compact ? 50 : 62;
-  return Math.min(base + hours * pxPerHour, max);
+  return Math.min(2 + Math.floor(hours / 2), 5);
 }
 
 export function updateShiftDuration(startTime: string, endTime: string): {
