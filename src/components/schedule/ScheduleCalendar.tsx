@@ -167,10 +167,11 @@ export function ScheduleCalendar({
       <div className="card-elevated flex-1 overflow-hidden min-h-0">
         <div className="h-full overflow-auto min-h-0 scroll-smooth">
           <div
-            className="grid"
+            className="grid items-start"
             style={{
               minWidth: tableMinWidth,
               gridTemplateColumns,
+              gridAutoRows: 'minmax(min-content, max-content)',
             }}
           >
             <div
@@ -218,7 +219,7 @@ export function ScheduleCalendar({
                 <Fragment key={row.id}>
                   <div
                     key={`label-${row.id}`}
-                    className="sticky left-0 z-10 border-r border-b-2 border-stone-300 bg-stone-50 flex items-start justify-center px-1.5 pt-2 pb-2 min-h-0"
+                    className="sticky left-0 z-10 self-stretch border-r border-b-2 border-stone-300 bg-stone-50 flex items-start justify-center px-1.5 pt-2 pb-2"
                     style={{ gridColumn: 1, gridRow }}
                   >
                     <span
@@ -254,7 +255,7 @@ export function ScheduleCalendar({
                           const shiftId = e.dataTransfer.getData('text/shift-id');
                           if (shiftId) onDrop(shiftId, day, row.id);
                         }}
-                        className={`border-r border-b-2 border-stone-300 p-0.5 flex flex-col gap-0.5 min-h-0 overflow-hidden group/cell ${cellBackgroundClasses(day, today)} ${
+                        className={`self-start w-full border-r border-b-2 border-stone-300 p-0.5 flex flex-col gap-0.5 group/cell ${cellBackgroundClasses(day, today)} ${
                           today ? 'ring-1 ring-inset ring-stone-700/15' : ''
                         } ${isDropTarget ? 'bg-amber-500/10 ring-2 ring-inset ring-amber-400/40' : ''}`}
                       >
@@ -274,7 +275,12 @@ export function ScheduleCalendar({
                           <button
                             type="button"
                             onClick={() => onCreateInCell(day, row.id)}
-                            style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
+                            style={{
+                              minHeight: getEmptyCellMinHeightForShiftType(
+                                row,
+                                settings.schedule.scheduleCardScale
+                              ),
+                            }}
                             className="w-full rounded-md border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
                           >
                             + 추가

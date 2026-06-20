@@ -12,7 +12,7 @@ import {
   scheduleDateKey,
   shiftMatchesDay,
 } from '@/lib/scheduleViewRange';
-import { getEmptyCellMinHeightForShiftType } from '@/lib/shiftUtils';
+import { getEmptyCellMinHeightForShiftType, DEFAULT_SCHEDULE_CARD_SCALE } from '@/lib/shiftUtils';
 import {
   getHolidayName,
   isPublicHoliday,
@@ -89,13 +89,15 @@ function MobileShiftChip({
   const employee = findEmployeeByShiftName(employees, shift.name);
   const shiftType = findShiftTypeById(shiftTypes, shift.rowId);
   const colorMode = settings.schedule.scheduleColorMode ?? 'employee';
+  const cardScale = settings.schedule.scheduleCardScale ?? DEFAULT_SCHEDULE_CARD_SCALE;
   const style = getShiftCardStyle(
     shift,
     shiftType,
     employee,
     settings.positions,
     colorMode,
-    true
+    true,
+    cardScale
   );
 
   return (
@@ -111,8 +113,16 @@ function MobileShiftChip({
         readOnly ? 'cursor-default' : 'active:opacity-80'
       }`}
     >
-      <div className="font-semibold text-xs leading-tight truncate">{shift.name}</div>
-      <div className="text-[11px] leading-tight opacity-90 truncate">
+      <div
+        className="font-semibold leading-tight truncate"
+        style={{ fontSize: `${Math.round(12 * cardScale / 100)}px` }}
+      >
+        {shift.name}
+      </div>
+      <div
+        className="leading-tight opacity-90 truncate"
+        style={{ fontSize: `${Math.round(11 * cardScale / 100)}px` }}
+      >
         {shift.startTime}–{shift.endTime}
       </div>
     </button>
@@ -309,6 +319,8 @@ function WeekGrid({
   onEditShift: (shift: ScheduleShift) => void;
   onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
 }) {
+  const { settings } = useSettings();
+  const cardScale = settings.schedule.scheduleCardScale;
   const shiftsByDayAndRow = useMemo(() => {
     const map = new Map<string, ScheduleShift[]>();
     for (const shift of shifts) {
@@ -350,9 +362,9 @@ function WeekGrid({
           </div>
 
           {shiftTypes.map((row) => (
-            <div key={row.id} className="flex items-stretch border-b-2 border-stone-200">
+            <div key={row.id} className="flex items-start border-b-2 border-stone-200">
               <div
-                className="w-[56px] shrink-0 flex items-start justify-center px-0.5 pt-1.5 pb-1 border-r border-stone-100 bg-stone-50/50"
+                className="w-[56px] shrink-0 self-stretch flex items-start justify-center px-0.5 pt-1.5 pb-1 border-r border-stone-100 bg-stone-50/50"
                 style={{ color: row.color }}
               >
                 <span className="text-[9px] font-semibold leading-tight text-center break-keep">
@@ -379,7 +391,7 @@ function WeekGrid({
                       const shiftId = e.dataTransfer.getData('text/shift-id');
                       if (shiftId) onDrop(shiftId, day, row.id);
                     }}
-                    className={`flex-1 border-r border-stone-50 last:border-r-0 p-0.5 flex flex-col gap-0.5 min-h-0 overflow-hidden border-b-2 border-stone-200 ${cellBgClasses(day, today, true, false)} ${
+                    className={`flex-1 self-start border-r border-stone-50 last:border-r-0 p-0.5 flex flex-col gap-0.5 border-b-2 border-stone-200 ${cellBgClasses(day, today, true, false)} ${
                       isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
                     }`}
                   >
@@ -400,7 +412,7 @@ function WeekGrid({
                       <button
                         type="button"
                         onClick={() => onCreateInCell(day, row.id)}
-                        style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
+                        style={{ minHeight: getEmptyCellMinHeightForShiftType(row, cardScale) }}
                         className="w-full rounded-lg border border-dashed border-stone-300/60 text-stone-400 text-xs touch-target"
                       >
                         +
