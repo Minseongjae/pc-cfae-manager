@@ -44,8 +44,7 @@ export function getShiftCardStyle(
   employee?: Pick<EmployeeRow, 'id' | 'position' | 'status'>,
   positions?: PositionDefinition[],
   colorMode: ScheduleColorMode = 'employee',
-  compact = false,
-  scale?: number
+  compact = false
 ): CSSProperties {
   let colorStyle: CSSProperties;
 
@@ -63,7 +62,7 @@ export function getShiftCardStyle(
     colorStyle = shiftTypeCardStyle('#9CA3AF');
   }
 
-  const cardHeight = getShiftCardHeightFromShift(shift, compact, scale);
+  const cardHeight = getShiftCardHeightFromShift(shift, compact);
 
   return {
     ...colorStyle,

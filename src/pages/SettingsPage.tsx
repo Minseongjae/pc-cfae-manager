@@ -31,11 +31,6 @@ import {
 } from '@/lib/employeeColors';
 import { SCHEDULE_FONT_OPTIONS } from '@/lib/scheduleFonts';
 import {
-  DEFAULT_SCHEDULE_CARD_SCALE,
-  SCHEDULE_CARD_SCALE_MAX,
-  SCHEDULE_CARD_SCALE_MIN,
-} from '@/lib/shiftUtils';
-import {
   createShiftTypeId,
   moveShiftType,
   sortShiftTypes,
@@ -463,40 +458,6 @@ function ScheduleSection({
               </option>
             ))}
           </select>
-        </Field>
-        <Field label={`카드 크기 (${value.scheduleCardScale ?? DEFAULT_SCHEDULE_CARD_SCALE}%)`}>
-          <div className="space-y-2">
-            <input
-              type="range"
-              className="w-full accent-stone-700"
-              min={SCHEDULE_CARD_SCALE_MIN}
-              max={SCHEDULE_CARD_SCALE_MAX}
-              step={2}
-              value={value.scheduleCardScale ?? DEFAULT_SCHEDULE_CARD_SCALE}
-              onChange={(e) =>
-                onChange({
-                  ...value,
-                  scheduleCardScale: Number(e.target.value),
-                })
-              }
-            />
-            <div className="flex justify-between text-[11px] text-stone-500">
-              <span>작게 ({SCHEDULE_CARD_SCALE_MIN}%)</span>
-              <button
-                type="button"
-                className="text-stone-600 underline-offset-2 hover:underline"
-                onClick={() =>
-                  onChange({ ...value, scheduleCardScale: DEFAULT_SCHEDULE_CARD_SCALE })
-                }
-              >
-                기본 ({DEFAULT_SCHEDULE_CARD_SCALE}%)
-              </button>
-              <span>크게 ({SCHEDULE_CARD_SCALE_MAX}%)</span>
-            </div>
-            <p className="text-[11px] text-stone-500 leading-relaxed">
-              각 칸은 배정된 인원 수에 맞춰 높이가 자동 조절됩니다. 슬라이더로 카드 전체 크기를 조절할 수 있습니다.
-            </p>
-          </div>
         </Field>
       </div>
 
