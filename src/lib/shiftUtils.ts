@@ -33,9 +33,9 @@ export function parseShiftDurationHours(duration: string | number | undefined): 
 /** Visual card height scaled by shift duration (hours). */
 export function getShiftCardMinHeight(duration: string | number | undefined, compact = false): number {
   const hours = parseShiftDurationHours(duration);
-  const base = compact ? 34 : 48;
-  const pxPerHour = compact ? 9 : 16;
-  const max = compact ? 110 : 176;
+  const base = compact ? 32 : 42;
+  const pxPerHour = compact ? 3 : 4;
+  const max = compact ? 50 : 62;
   return Math.min(base + hours * pxPerHour, max);
 }
 
