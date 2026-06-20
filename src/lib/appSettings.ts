@@ -12,7 +12,6 @@ import {
   type InventoryCategory,
 } from '@/lib/inventoryCategories';
 import { migrateScheduleFontFamily, type ScheduleFontId } from '@/lib/scheduleFonts';
-import { migrateScheduleCardScale } from '@/lib/shiftUtils';
 import { normalizeOptionalNumber } from '@/lib/numericInput';
 
 export const SETTINGS_CHANGED_EVENT = 'settings-changed';
@@ -60,8 +59,6 @@ export interface ScheduleSettings {
   scheduleColorMode?: ScheduleColorMode;
   /** Schedule card font */
   scheduleFontFamily?: ScheduleFontId;
-  /** Schedule card scale (70–130%, default 100) */
-  scheduleCardScale?: number;
 }
 
 export interface PositionDefinition {
@@ -135,7 +132,6 @@ export function createDefaultAppSettings(
       employeeScheduleColors: {},
       scheduleColorMode: 'employee' as ScheduleColorMode,
       scheduleFontFamily: 'dm-sans' as const,
-      scheduleCardScale: 100,
     },
     positions: DEFAULT_POSITIONS.map((p) => ({ ...p })),
     shiftTypes,
@@ -194,9 +190,6 @@ export function migrateAppSettings(
           : defaults.schedule.scheduleColorMode ?? 'employee',
       scheduleFontFamily: migrateScheduleFontFamily(
         input.schedule?.scheduleFontFamily ?? defaults.schedule.scheduleFontFamily
-      ),
-      scheduleCardScale: migrateScheduleCardScale(
-        input.schedule?.scheduleCardScale ?? defaults.schedule.scheduleCardScale
       ),
     },
     positions: migratePositions(
