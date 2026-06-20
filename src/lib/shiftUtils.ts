@@ -112,8 +112,9 @@ export function getRowMinHeightForShiftType(_shiftType?: ShiftType): number {
   return shortCard * SCHEDULE_STACK_TARGET + SCHEDULE_CARD_GAP * (SCHEDULE_STACK_TARGET - 1) + 10;
 }
 
-export function getEmptyCellMinHeightForShiftType(_shiftType?: ShiftType): number {
-  return getShiftCardHeight(4, false) + 4;
+export function getEmptyCellMinHeightForShiftType(_shiftType?: ShiftType, scale?: number): number {
+  const normalized = migrateScheduleCardScale(scale);
+  return Math.max(Math.round(28 * normalized / 100), 22);
 }
 
 /** Actual worked hours — prefer start/end times over stored duration label. */
@@ -129,17 +130,38 @@ export function getShiftWorkedHours(shift: {
   return parseShiftDurationHours(shift.duration);
 }
 
-/** Target stacked cards per cell (오전/오후/미들/야간 +1). */
+/** Target stacked cards per cell (legacy sizing helpers). */
 export const SCHEDULE_STACK_TARGET = 4;
 export const SCHEDULE_CARD_GAP = 2;
 
-/** Card height grows linearly with hours — fixed height, clearly distinguishable. */
-export function getShiftCardHeight(hours: number, compact = false): number {
+export const SCHEDULE_CARD_SCALE_MIN = 70;
+export const SCHEDULE_CARD_SCALE_MAX = 130;
+export const DEFAULT_SCHEDULE_CARD_SCALE = 100;
+
+export function migrateScheduleCardScale(input: number | undefined): number {
+  if (typeof input === 'number' && Number.isFinite(input)) {
+    return Math.min(
+      SCHEDULE_CARD_SCALE_MAX,
+      Math.max(SCHEDULE_CARD_SCALE_MIN, Math.round(input))
+    );
+  }
+  return DEFAULT_SCHEDULE_CARD_SCALE;
+}
+
+/** Card height grows linearly with hours — scaled by user preference (70–130%). */
+export function getShiftCardHeight(
+  hours: number,
+  compact = false,
+  scale = DEFAULT_SCHEDULE_CARD_SCALE
+): number {
   const h = Math.max(hours, 1);
   const base = compact ? 20 : 26;
   const pxPerHour = compact ? 5 : 10;
   const max = compact ? 46 : 120;
-  return Math.min(Math.round(base + h * pxPerHour), max);
+  const raw = Math.min(Math.round(base + h * pxPerHour), max);
+  const scaled = Math.round(raw * migrateScheduleCardScale(scale) / 100);
+  const floor = compact ? 18 : 22;
+  return Math.max(scaled, floor);
 }
 
 /** 0–1 fill ratio for duration bar (12h = full). */
@@ -149,9 +171,10 @@ export function getShiftDurationFillRatio(hours: number): number {
 
 export function getShiftCardHeightFromShift(
   shift: { duration?: string | number; startTime?: string; endTime?: string },
-  compact = false
+  compact = false,
+  scale = DEFAULT_SCHEDULE_CARD_SCALE
 ): number {
-  return getShiftCardHeight(getShiftWorkedHours(shift), compact);
+  return getShiftCardHeight(getShiftWorkedHours(shift), compact, scale);
 }
 
 /** @deprecated Use getShiftCardHeight */
