@@ -13,6 +13,10 @@ import {
   KOREAN_WEEKDAYS,
 } from '@/lib/koreanHolidays';
 import { scheduleDateKey, shiftMatchesDay } from '@/lib/scheduleViewRange';
+import {
+  getEmptyCellMinHeightForShiftType,
+  getRowMinHeightForShiftType,
+} from '@/lib/shiftUtils';
 import { ScheduleMobileCalendar } from '@/components/schedule/ScheduleMobileCalendar';
 
 interface ScheduleCalendarProps {
@@ -33,7 +37,6 @@ interface ScheduleCalendarProps {
 
 const DAY_CELL_WIDTH = 128;
 const ROW_LABEL_WIDTH = 72;
-const ROW_MIN_HEIGHT = 72;
 const HEADER_HEIGHT = 64;
 
 function dayHeaderClasses(day: Date, today: boolean): string {
@@ -170,7 +173,7 @@ export function ScheduleCalendar({
             <div
               key={row.id}
               className="flex items-start px-2 py-2 md:px-2.5 md:py-2.5 border-b border-stone-200/80 last:border-b-0"
-              style={{ minHeight: ROW_MIN_HEIGHT }}
+              style={{ minHeight: getRowMinHeightForShiftType(row) }}
             >
               <span
                 className="text-[10px] md:text-[11px] font-medium leading-tight tracking-wide"
@@ -224,7 +227,7 @@ export function ScheduleCalendar({
               <div
                 key={row.id}
                 className="flex border-b border-stone-200/60 last:border-b-0"
-                style={{ minHeight: ROW_MIN_HEIGHT }}
+                style={{ minHeight: getRowMinHeightForShiftType(row) }}
               >
                 {days.map((day) => {
                   const dayNum = day.getDate();
@@ -271,7 +274,8 @@ export function ScheduleCalendar({
                         <button
                           type="button"
                           onClick={() => onCreateInCell(day, row.id)}
-                          className="w-full h-full min-h-[32px] md:min-h-[36px] rounded-lg border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
+                          style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
+                          className="w-full h-full rounded-lg border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
                         >
                           + 추가
                         </button>

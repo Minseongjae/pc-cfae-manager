@@ -7,7 +7,7 @@ import {
   EMPLOYEE_CARD_CLASSES,
   resolveEmployeeScheduleColor,
 } from '@/lib/employeeColors';
-import { getShiftCardMinHeight, getShiftDurationAccentPx } from '@/lib/shiftUtils';
+import { getShiftCardMinHeightFromShift } from '@/lib/shiftUtils';
 import { shiftTypeCardStyle } from '@/lib/scheduleShiftTypes';
 import type { ShiftType } from '@/types';
 
@@ -64,8 +64,7 @@ export function getShiftCardStyle(
 
   return {
     ...colorStyle,
-    minHeight: getShiftCardMinHeight(shift.duration, compact),
-    borderBottomWidth: getShiftDurationAccentPx(shift.duration),
+    minHeight: getShiftCardMinHeightFromShift(shift, compact),
   };
 }
 
