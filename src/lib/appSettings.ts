@@ -11,6 +11,7 @@ import {
   migrateInventoryCategories,
   type InventoryCategory,
 } from '@/lib/inventoryCategories';
+import { migrateScheduleFontFamily, type ScheduleFontId } from '@/lib/scheduleFonts';
 import { normalizeOptionalNumber } from '@/lib/numericInput';
 
 export const SETTINGS_CHANGED_EVENT = 'settings-changed';
@@ -56,6 +57,8 @@ export interface ScheduleSettings {
   employeeScheduleColors?: Record<string, string>;
   /** Schedule card color source */
   scheduleColorMode?: ScheduleColorMode;
+  /** Schedule card font */
+  scheduleFontFamily?: ScheduleFontId;
 }
 
 export interface PositionDefinition {
@@ -128,6 +131,7 @@ export function createDefaultAppSettings(
       schoolSchedules,
       employeeScheduleColors: {},
       scheduleColorMode: 'employee' as ScheduleColorMode,
+      scheduleFontFamily: 'dm-sans' as const,
     },
     positions: DEFAULT_POSITIONS.map((p) => ({ ...p })),
     shiftTypes,
@@ -184,6 +188,9 @@ export function migrateAppSettings(
         input.schedule?.scheduleColorMode === 'employee'
           ? input.schedule.scheduleColorMode
           : defaults.schedule.scheduleColorMode ?? 'employee',
+      scheduleFontFamily: migrateScheduleFontFamily(
+        input.schedule?.scheduleFontFamily ?? defaults.schedule.scheduleFontFamily
+      ),
     },
     positions: migratePositions(
       input.positions?.length && Array.isArray(input.positions)

@@ -86,5 +86,5 @@ export function getShiftCardColorClass(
   if (isVacationShift(shift, undefined, employee?.status)) {
     return EMPLOYEE_CARD_CLASSES.vacation;
   }
-  return 'border shadow-sm';
+  return 'border';
 }

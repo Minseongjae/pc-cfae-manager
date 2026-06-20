@@ -2,7 +2,7 @@ import { useRef, useCallback, useMemo } from 'react';
 import { useDragGuard } from '@/contexts/DragGuardContext';
 import type { ScheduleShift } from '@/data/mockSchedule';
 import { getShiftCardColorClass, getShiftCardStyle } from '@/lib/shiftDisplay';
-import { getShiftDurationFillRatio, getShiftWorkedHours } from '@/lib/shiftUtils';
+import { getShiftWorkedHours } from '@/lib/shiftUtils';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -36,7 +36,7 @@ export function ShiftCard({
   const { employees } = useEmployees();
   const { settings } = useSettings();
   const shiftTypes = useScheduleShiftTypes();
-  const { colorClass, cardStyle, workedHours, durationFill } = useMemo(() => {
+  const { colorClass, cardStyle, workedHours } = useMemo(() => {
     const employee = findEmployeeByShiftName(employees, shift.name);
     const shiftType = findShiftTypeById(shiftTypes, shift.rowId);
     const hours = getShiftWorkedHours(shift);
@@ -54,7 +54,6 @@ export function ShiftCard({
         compact
       ),
       workedHours: hours,
-      durationFill: getShiftDurationFillRatio(hours),
     };
   }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode, compact]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
@@ -117,15 +116,11 @@ export function ShiftCard({
       }}
       onClick={handleClick}
       style={cardStyle}
-      className={`group relative shrink-0 border shadow-sm select-none ${colorClass} ${
-        compact ? 'rounded-md px-1 py-0.5 text-[10px] leading-tight' : 'rounded-md px-1.5 py-0.5 text-[11px] leading-tight'
+      className={`group relative shrink-0 border select-none ${colorClass} ${
+        compact ? 'rounded-md px-1 py-0.5 leading-tight' : 'rounded-md px-1.5 py-1 leading-snug'
       } ${
-        readOnly
-          ? 'cursor-default'
-          : 'cursor-pointer'
-      } ${
-        isDragging ? 'opacity-50 scale-95 shadow-none' : `opacity-100 ${readOnly ? '' : 'hover:shadow-md'}`
-      }`}
+        readOnly ? 'cursor-default' : 'cursor-pointer'
+      } ${isDragging ? 'opacity-50' : 'opacity-100'}`}
     >
       {!readOnly && !compact && (
       <div
@@ -141,20 +136,15 @@ export function ShiftCard({
         title="드래그하여 이동"
       />
       )}
-      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-[10px] pr-0' : 'text-[11px] pr-2'}`}>
+      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-xs pr-0' : 'text-sm pr-2'}`}>
         {shift.name}
       </div>
-      <div className={`font-medium opacity-90 truncate ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
+      <div className={`font-medium truncate ${compact ? 'text-[11px] opacity-90' : 'text-xs opacity-90'}`}>
         {shift.startTime}–{shift.endTime}
         {!compact && (
-          <span className="opacity-75"> · {Math.round(workedHours)}h</span>
+          <span className="opacity-80"> · {Math.round(workedHours)}h</span>
         )}
       </div>
-      <div
-        className="absolute bottom-0 left-0 h-1 rounded-b-md bg-stone-900/30 pointer-events-none"
-        style={{ width: `${Math.round(durationFill * 100)}%` }}
-        aria-hidden
-      />
 
       {!readOnly && !compact && (
       <div

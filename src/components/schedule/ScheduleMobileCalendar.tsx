@@ -24,6 +24,7 @@ import { getShiftCardStyle } from '@/lib/shiftDisplay';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { resolveScheduleFontFamily } from '@/lib/scheduleFonts';
 
 interface ScheduleMobileCalendarProps {
   days: Date[];
@@ -106,12 +107,12 @@ function MobileShiftChip({
         if (!readOnly) onEdit(shift);
       }}
       style={style}
-      className={`w-full text-left rounded-md border px-1 py-0.5 shadow-sm ${
+      className={`w-full text-left rounded-md border px-1 py-0.5 ${
         readOnly ? 'cursor-default' : 'active:opacity-80'
       }`}
     >
-      <div className="font-semibold text-[10px] leading-tight truncate">{shift.name}</div>
-      <div className="text-[9px] leading-tight opacity-90 truncate">
+      <div className="font-semibold text-xs leading-tight truncate">{shift.name}</div>
+      <div className="text-[11px] leading-tight opacity-90 truncate">
         {shift.startTime}–{shift.endTime}
       </div>
     </button>
@@ -432,6 +433,8 @@ export function ScheduleMobileCalendar({
   onCreateInCell,
 }: ScheduleMobileCalendarProps) {
   const shiftTypes = useScheduleShiftTypes();
+  const { settings } = useSettings();
+  const scheduleFont = resolveScheduleFontFamily(settings.schedule.scheduleFontFamily);
   const defaultRowId = shiftTypes[0]?.id ?? 'morning';
   const isMonthView = days.length > 7;
 
@@ -455,7 +458,10 @@ export function ScheduleMobileCalendar({
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+    <div
+      className="flex-1 flex flex-col min-h-0 overflow-hidden"
+      style={{ fontFamily: scheduleFont }}
+    >
       {isMonthView ? (
         <MonthGrid
           days={days}

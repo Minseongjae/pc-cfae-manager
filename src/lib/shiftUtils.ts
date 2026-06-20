@@ -136,7 +136,7 @@ export const SCHEDULE_CARD_GAP = 2;
 /** Card height grows linearly with hours — fixed height, clearly distinguishable. */
 export function getShiftCardHeight(hours: number, compact = false): number {
   const h = Math.max(hours, 1);
-  const base = compact ? 18 : 22;
+  const base = compact ? 20 : 26;
   const pxPerHour = compact ? 5 : 10;
   const max = compact ? 46 : 120;
   return Math.min(Math.round(base + h * pxPerHour), max);

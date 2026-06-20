@@ -29,6 +29,7 @@ import { deleteShiftType, getAppSettings, ShiftTypeDeleteError, getEmployees, sa
 import {
   resolveEmployeeScheduleColor,
 } from '@/lib/employeeColors';
+import { SCHEDULE_FONT_OPTIONS } from '@/lib/scheduleFonts';
 import {
   createShiftTypeId,
   moveShiftType,
@@ -438,6 +439,24 @@ function ScheduleSection({
           >
             <option value="employee">직원별 색상</option>
             <option value="shiftType">근무유형별 색상</option>
+          </select>
+        </Field>
+        <Field label="스케줄 글씨체">
+          <select
+            className="input-luxury"
+            value={value.scheduleFontFamily ?? 'dm-sans'}
+            onChange={(e) =>
+              onChange({
+                ...value,
+                scheduleFontFamily: e.target.value as ScheduleSettings['scheduleFontFamily'],
+              })
+            }
+          >
+            {SCHEDULE_FONT_OPTIONS.map((font) => (
+              <option key={font.id} value={font.id}>
+                {font.label}
+              </option>
+            ))}
           </select>
         </Field>
       </div>

@@ -4,7 +4,9 @@ import { CalendarLegend } from './CalendarLegend';
 import { ShiftCard } from './ShiftCard';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useSettings } from '@/contexts/SettingsContext';
 import { useScheduleShiftTypes } from '@/hooks/useScheduleShiftTypes';
+import { resolveScheduleFontFamily } from '@/lib/scheduleFonts';
 import {
   getHolidayName,
   isPublicHoliday,
@@ -101,6 +103,8 @@ export function ScheduleCalendar({
 }: ScheduleCalendarProps) {
   const isMobile = useIsMobile();
   const shiftTypes = useScheduleShiftTypes();
+  const { settings } = useSettings();
+  const scheduleFont = resolveScheduleFontFamily(settings.schedule.scheduleFontFamily);
 
   if (isMobile) {
     return (
@@ -155,7 +159,10 @@ export function ScheduleCalendar({
   }
 
   return (
-    <div className="flex-1 overflow-hidden p-2 md:p-4 min-h-0 flex flex-col gap-2">
+    <div
+      className="flex-1 overflow-hidden p-2 md:p-4 min-h-0 flex flex-col gap-2"
+      style={{ fontFamily: scheduleFont }}
+    >
       <CalendarLegend compact={false} />
       <div className="card-elevated flex-1 overflow-hidden min-h-0">
         <div className="h-full overflow-auto min-h-0 scroll-smooth">
