@@ -2,6 +2,7 @@ import { useRef, useCallback, useMemo } from 'react';
 import { useDragGuard } from '@/contexts/DragGuardContext';
 import type { ScheduleShift } from '@/data/mockSchedule';
 import { getShiftCardColorClass, getShiftCardStyle } from '@/lib/shiftDisplay';
+import { getShiftDurationFillRatio, getShiftWorkedHours } from '@/lib/shiftUtils';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -35,9 +36,10 @@ export function ShiftCard({
   const { employees } = useEmployees();
   const { settings } = useSettings();
   const shiftTypes = useScheduleShiftTypes();
-  const { colorClass, cardStyle } = useMemo(() => {
+  const { colorClass, cardStyle, workedHours, durationFill } = useMemo(() => {
     const employee = findEmployeeByShiftName(employees, shift.name);
     const shiftType = findShiftTypeById(shiftTypes, shift.rowId);
+    const hours = getShiftWorkedHours(shift);
     return {
       colorClass: getShiftCardColorClass(
         shift,
@@ -51,6 +53,8 @@ export function ShiftCard({
         settings.schedule.scheduleColorMode ?? 'employee',
         compact
       ),
+      workedHours: hours,
+      durationFill: getShiftDurationFillRatio(hours),
     };
   }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode, compact]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
@@ -114,7 +118,7 @@ export function ShiftCard({
       onClick={handleClick}
       style={cardStyle}
       className={`group relative border shadow-sm select-none transition-all duration-200 ${colorClass} ${
-        compact ? 'rounded-lg px-1.5 py-1 text-[10px] leading-tight' : 'rounded-lg px-2 py-1 text-[11px] leading-tight'
+        compact ? 'rounded-md px-1 py-0.5 text-[10px] leading-tight' : 'rounded-md px-1.5 py-0.5 text-[11px] leading-tight'
       } ${
         readOnly
           ? 'cursor-default'
@@ -137,15 +141,20 @@ export function ShiftCard({
         title="드래그하여 이동"
       />
       )}
-      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-[11px] pr-0' : 'text-xs pr-3'}`}>
+      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-[10px] pr-0' : 'text-[11px] pr-2'}`}>
         {shift.name}
       </div>
-      <div className={`font-medium opacity-90 truncate ${compact ? 'text-[10px] mt-0.5' : 'mt-0.5 text-[10px]'}`}>
+      <div className={`font-medium opacity-90 truncate ${compact ? 'text-[9px]' : 'text-[10px]'}`}>
         {shift.startTime}–{shift.endTime}
         {!compact && (
-          <span className="opacity-75"> · {parseInt(String(shift.duration), 10) || 1}h</span>
+          <span className="opacity-75"> · {Math.round(workedHours)}h</span>
         )}
       </div>
+      <div
+        className="absolute bottom-0 left-0 h-[3px] rounded-b-md bg-stone-900/25 pointer-events-none"
+        style={{ width: `${Math.round(durationFill * 100)}%` }}
+        aria-hidden
+      />
 
       {!readOnly && !compact && (
       <div

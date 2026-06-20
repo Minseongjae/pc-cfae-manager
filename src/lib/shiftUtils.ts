@@ -99,12 +99,13 @@ export function getShiftTypeRowProfile(shiftType: ShiftType): ShiftTypeRowProfil
   };
 }
 
-export function getRowMinHeightForShiftType(shiftType: ShiftType): number {
-  return getShiftTypeRowProfile(shiftType).rowMinHeight;
+export function getRowMinHeightForShiftType(_shiftType?: ShiftType): number {
+  const shortCard = getShiftCardHeight(4, false);
+  return shortCard * SCHEDULE_STACK_TARGET + SCHEDULE_CARD_GAP * (SCHEDULE_STACK_TARGET - 1) + 10;
 }
 
-export function getEmptyCellMinHeightForShiftType(shiftType: ShiftType): number {
-  return Math.max(getShiftTypeRowProfile(shiftType).rowMinHeight - 28, 28);
+export function getEmptyCellMinHeightForShiftType(_shiftType?: ShiftType): number {
+  return getShiftCardHeight(4, false) + 4;
 }
 
 /** Actual worked hours — prefer start/end times over stored duration label. */
@@ -120,12 +121,21 @@ export function getShiftWorkedHours(shift: {
   return parseShiftDurationHours(shift.duration);
 }
 
-/** Card height grows linearly with hours worked — enforced via fixed height, not minHeight. */
+/** Target stacked cards per cell (오전/오후/미들/야간 +1). */
+export const SCHEDULE_STACK_TARGET = 4;
+export const SCHEDULE_CARD_GAP = 2;
+
+/** Card height grows linearly with hours — fixed height for clear visual comparison. */
 export function getShiftCardHeight(hours: number, compact = false): number {
-  const base = compact ? 24 : 30;
-  const pxPerHour = compact ? 3 : 4;
-  const max = compact ? 44 : 58;
+  const base = compact ? 20 : 22;
+  const pxPerHour = compact ? 4 : 7;
+  const max = compact ? 38 : 60;
   return Math.min(Math.round(base + hours * pxPerHour), max);
+}
+
+/** 0–1 fill ratio for optional duration bar (10h = full). */
+export function getShiftDurationFillRatio(hours: number): number {
+  return Math.min(Math.max(hours, 1) / 10, 1);
 }
 
 export function getShiftCardHeightFromShift(

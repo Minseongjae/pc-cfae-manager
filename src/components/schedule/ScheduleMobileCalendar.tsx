@@ -12,7 +12,7 @@ import {
   scheduleDateKey,
   shiftMatchesDay,
 } from '@/lib/scheduleViewRange';
-import { getEmptyCellMinHeightForShiftType, getRowMinHeightForShiftType } from '@/lib/shiftUtils';
+import { getEmptyCellMinHeightForShiftType } from '@/lib/shiftUtils';
 import {
   getHolidayName,
   isPublicHoliday,
@@ -349,16 +349,12 @@ function WeekGrid({
           </div>
 
           {shiftTypes.map((row) => (
-            <div
-              key={row.id}
-              className="flex border-b border-stone-100"
-              style={{ minHeight: getRowMinHeightForShiftType(row) }}
-            >
+            <div key={row.id} className="flex items-stretch border-b border-stone-100">
               <div
-                className="w-[52px] shrink-0 flex items-center justify-center px-1 border-r border-stone-100 bg-stone-50/50"
+                className="w-[56px] shrink-0 flex items-center justify-center px-0.5 py-1 border-r border-stone-100 bg-stone-50/50"
                 style={{ color: row.color }}
               >
-                <span className="text-[10px] font-semibold leading-tight text-center break-all">
+                <span className="text-[9px] font-semibold leading-tight text-center break-keep">
                   {row.name}
                 </span>
               </div>
