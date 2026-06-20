@@ -36,11 +36,10 @@ export function ShiftCard({
   const { employees } = useEmployees();
   const { settings } = useSettings();
   const shiftTypes = useScheduleShiftTypes();
-  const { colorClass, cardStyle, workedHours, cardScale } = useMemo(() => {
+  const { colorClass, cardStyle, workedHours } = useMemo(() => {
     const employee = findEmployeeByShiftName(employees, shift.name);
     const shiftType = findShiftTypeById(shiftTypes, shift.rowId);
     const hours = getShiftWorkedHours(shift);
-    const scale = settings.schedule.scheduleCardScale ?? 88;
     return {
       colorClass: getShiftCardColorClass(
         shift,
@@ -52,21 +51,11 @@ export function ShiftCard({
         employee,
         settings.positions,
         settings.schedule.scheduleColorMode ?? 'employee',
-        compact,
-        scale
+        compact
       ),
       workedHours: hours,
-      cardScale: scale,
     };
-  }, [
-    employees,
-    shift,
-    shiftTypes,
-    settings.positions,
-    settings.schedule.scheduleColorMode,
-    settings.schedule.scheduleCardScale,
-    compact,
-  ]);
+  }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode, compact]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
   const didDragRef = useRef(false);
 
@@ -147,16 +136,10 @@ export function ShiftCard({
         title="드래그하여 이동"
       />
       )}
-      <div
-        className={`font-semibold tracking-tight truncate ${compact ? 'pr-0' : 'pr-2'}`}
-        style={{ fontSize: compact ? `${Math.round(12 * cardScale / 100)}px` : `${Math.round(14 * cardScale / 100)}px` }}
-      >
+      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-xs pr-0' : 'text-sm pr-2'}`}>
         {shift.name}
       </div>
-      <div
-        className="font-medium truncate opacity-90"
-        style={{ fontSize: compact ? `${Math.round(11 * cardScale / 100)}px` : `${Math.round(12 * cardScale / 100)}px` }}
-      >
+      <div className={`font-medium truncate ${compact ? 'text-[11px] opacity-90' : 'text-xs opacity-90'}`}>
         {shift.startTime}–{shift.endTime}
         {!compact && (
           <span className="opacity-80"> · {Math.round(workedHours)}h</span>
