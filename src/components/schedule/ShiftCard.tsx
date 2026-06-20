@@ -117,14 +117,14 @@ export function ShiftCard({
       }}
       onClick={handleClick}
       style={cardStyle}
-      className={`group relative border shadow-sm select-none transition-all duration-200 ${colorClass} ${
+      className={`group relative shrink-0 border shadow-sm select-none ${colorClass} ${
         compact ? 'rounded-md px-1 py-0.5 text-[10px] leading-tight' : 'rounded-md px-1.5 py-0.5 text-[11px] leading-tight'
       } ${
         readOnly
           ? 'cursor-default'
           : 'cursor-pointer'
       } ${
-        isDragging ? 'opacity-50 scale-95 shadow-none' : `opacity-100 ${readOnly ? '' : 'hover:shadow-md hover:-translate-y-0.5'}`
+        isDragging ? 'opacity-50 scale-95 shadow-none' : `opacity-100 ${readOnly ? '' : 'hover:shadow-md'}`
       }`}
     >
       {!readOnly && !compact && (
@@ -151,7 +151,7 @@ export function ShiftCard({
         )}
       </div>
       <div
-        className="absolute bottom-0 left-0 h-[3px] rounded-b-md bg-stone-900/25 pointer-events-none"
+        className="absolute bottom-0 left-0 h-1 rounded-b-md bg-stone-900/30 pointer-events-none"
         style={{ width: `${Math.round(durationFill * 100)}%` }}
         aria-hidden
       />

@@ -56,9 +56,17 @@ function matchesShiftKind(
 
   switch (kind) {
     case 'night':
-      return id === 'night' || id.includes('night') || name.includes('야간');
+      return (
+        (id === 'night' || id.includes('night') || name.includes('야간')) &&
+        !name.includes('미들야간')
+      );
     case 'middle':
-      return id === 'middle' || id.includes('middle') || name.includes('미들');
+      return (
+        id === 'middle' ||
+        id.includes('middle') ||
+        name.includes('미들야간') ||
+        (name.includes('미들') && !name.includes('야간'))
+      );
     case 'afternoon':
       return id.startsWith('afternoon') || name.includes('오후');
     case 'morning':
@@ -125,17 +133,18 @@ export function getShiftWorkedHours(shift: {
 export const SCHEDULE_STACK_TARGET = 4;
 export const SCHEDULE_CARD_GAP = 2;
 
-/** Card height grows linearly with hours — fixed height for clear visual comparison. */
+/** Card height grows linearly with hours — fixed height, clearly distinguishable. */
 export function getShiftCardHeight(hours: number, compact = false): number {
-  const base = compact ? 20 : 22;
-  const pxPerHour = compact ? 4 : 7;
-  const max = compact ? 38 : 60;
-  return Math.min(Math.round(base + hours * pxPerHour), max);
+  const h = Math.max(hours, 1);
+  const base = compact ? 18 : 22;
+  const pxPerHour = compact ? 5 : 10;
+  const max = compact ? 46 : 120;
+  return Math.min(Math.round(base + h * pxPerHour), max);
 }
 
-/** 0–1 fill ratio for optional duration bar (10h = full). */
+/** 0–1 fill ratio for duration bar (12h = full). */
 export function getShiftDurationFillRatio(hours: number): number {
-  return Math.min(Math.max(hours, 1) / 10, 1);
+  return Math.min(Math.max(hours, 1) / 12, 1);
 }
 
 export function getShiftCardHeightFromShift(

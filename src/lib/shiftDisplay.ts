@@ -68,6 +68,8 @@ export function getShiftCardStyle(
     ...colorStyle,
     height: cardHeight,
     minHeight: cardHeight,
+    maxHeight: cardHeight,
+    flexShrink: 0,
     boxSizing: 'border-box',
     display: 'flex',
     flexDirection: 'column',

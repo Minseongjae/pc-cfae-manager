@@ -349,9 +349,9 @@ function WeekGrid({
           </div>
 
           {shiftTypes.map((row) => (
-            <div key={row.id} className="flex items-stretch border-b border-stone-100">
+            <div key={row.id} className="flex items-stretch border-b-2 border-stone-200">
               <div
-                className="w-[56px] shrink-0 flex items-center justify-center px-0.5 py-1 border-r border-stone-100 bg-stone-50/50"
+                className="w-[56px] shrink-0 flex items-start justify-center px-0.5 pt-1.5 pb-1 border-r border-stone-100 bg-stone-50/50"
                 style={{ color: row.color }}
               >
                 <span className="text-[9px] font-semibold leading-tight text-center break-keep">
@@ -378,7 +378,7 @@ function WeekGrid({
                       const shiftId = e.dataTransfer.getData('text/shift-id');
                       if (shiftId) onDrop(shiftId, day, row.id);
                     }}
-                    className={`flex-1 border-r border-stone-50 last:border-r-0 p-1 space-y-0.5 ${cellBgClasses(day, today, true, false)} ${
+                    className={`flex-1 border-r border-stone-50 last:border-r-0 p-0.5 flex flex-col gap-0.5 min-h-0 overflow-hidden border-b-2 border-stone-200 ${cellBgClasses(day, today, true, false)} ${
                       isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
                     }`}
                   >
