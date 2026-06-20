@@ -48,10 +48,11 @@ export function ShiftCard({
         shiftType,
         employee,
         settings.positions,
-        settings.schedule.scheduleColorMode ?? 'employee'
+        settings.schedule.scheduleColorMode ?? 'employee',
+        compact
       ),
     };
-  }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode]);
+  }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode, compact]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
   const didDragRef = useRef(false);
 
@@ -113,7 +114,7 @@ export function ShiftCard({
       onClick={handleClick}
       style={cardStyle}
       className={`group relative border shadow-sm select-none transition-all duration-200 ${colorClass} ${
-        compact ? 'rounded-lg px-1.5 py-1 text-[10px] leading-tight' : 'rounded-lg px-2 py-1.5 text-[11px] leading-tight'
+        compact ? 'rounded-lg px-1.5 py-1 text-[10px] leading-tight' : 'rounded-lg px-2 py-1 text-[11px] leading-tight'
       } ${
         readOnly
           ? 'cursor-default'

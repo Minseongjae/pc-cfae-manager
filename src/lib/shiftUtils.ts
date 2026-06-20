@@ -82,7 +82,7 @@ export function getShiftTypeRowProfile(shiftType: ShiftType): ShiftTypeRowProfil
   }
   if (matchesShiftKind(shiftType, 'afternoon') || matchesShiftKind(shiftType, 'morning')) {
     const refHours = Math.max(defaultHours, 4);
-    return { refHours, rowMinHeight: 64, cardBase: 32, cardMax: 44, compactCardMax: 32 };
+    return { refHours, rowMinHeight: 52, cardBase: 30, cardMax: 46, compactCardMax: 32 };
   }
   if (matchesShiftKind(shiftType, 'training')) {
     const refHours = Math.max(defaultHours, 2);
@@ -100,10 +100,7 @@ export function getShiftTypeRowProfile(shiftType: ShiftType): ShiftTypeRowProfil
 }
 
 export function getRowMinHeightForShiftType(shiftType: ShiftType): number {
-  const profile = getShiftTypeRowProfile(shiftType);
-  const typicalMaxHours = profile.refHours + 2;
-  const cardHeight = getShiftCardMinHeight(typicalMaxHours, false);
-  return Math.max(profile.rowMinHeight, cardHeight + 14);
+  return getShiftTypeRowProfile(shiftType).rowMinHeight;
 }
 
 export function getEmptyCellMinHeightForShiftType(shiftType: ShiftType): number {
@@ -123,22 +120,31 @@ export function getShiftWorkedHours(shift: {
   return parseShiftDurationHours(shift.duration);
 }
 
-/** Card height grows linearly with hours worked — same rule everywhere, capped to stay compact. */
-export function getShiftCardMinHeight(
-  hours: number,
+/** Card height grows linearly with hours worked — enforced via fixed height, not minHeight. */
+export function getShiftCardHeight(hours: number, compact = false): number {
+  const base = compact ? 24 : 30;
+  const pxPerHour = compact ? 3 : 4;
+  const max = compact ? 44 : 58;
+  return Math.min(Math.round(base + hours * pxPerHour), max);
+}
+
+export function getShiftCardHeightFromShift(
+  shift: { duration?: string | number; startTime?: string; endTime?: string },
   compact = false
 ): number {
-  const base = compact ? 26 : 34;
-  const pxPerHour = compact ? 2 : 2.5;
-  const max = compact ? 40 : 52;
-  return Math.min(Math.round(base + hours * pxPerHour), max);
+  return getShiftCardHeight(getShiftWorkedHours(shift), compact);
+}
+
+/** @deprecated Use getShiftCardHeight */
+export function getShiftCardMinHeight(hours: number, compact = false): number {
+  return getShiftCardHeight(hours, compact);
 }
 
 export function getShiftCardMinHeightFromShift(
   shift: { duration?: string | number; startTime?: string; endTime?: string },
   compact = false
 ): number {
-  return getShiftCardMinHeight(getShiftWorkedHours(shift), compact);
+  return getShiftCardHeightFromShift(shift, compact);
 }
 
 export function updateShiftDuration(startTime: string, endTime: string): {

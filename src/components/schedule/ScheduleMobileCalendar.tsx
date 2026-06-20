@@ -382,7 +382,7 @@ function WeekGrid({
                       const shiftId = e.dataTransfer.getData('text/shift-id');
                       if (shiftId) onDrop(shiftId, day, row.id);
                     }}
-                    className={`flex-1 border-r border-stone-50 last:border-r-0 p-1 space-y-1 ${cellBgClasses(day, today, true, false)} ${
+                    className={`flex-1 border-r border-stone-50 last:border-r-0 p-1 space-y-0.5 ${cellBgClasses(day, today, true, false)} ${
                       isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
                     }`}
                   >

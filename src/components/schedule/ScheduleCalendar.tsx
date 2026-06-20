@@ -254,7 +254,7 @@ export function ScheduleCalendar({
                         const shiftId = e.dataTransfer.getData('text/shift-id');
                         if (shiftId) onDrop(shiftId, day, row.id);
                       }}
-                      className={`shrink-0 border-r border-stone-100 p-1 md:p-1.5 space-y-1 transition-all duration-200 group/cell ${cellBackgroundClasses(day, today)} ${
+                      className={`shrink-0 border-r border-stone-100 p-1 md:p-1 space-y-0.5 transition-all duration-200 group/cell ${cellBackgroundClasses(day, today)} ${
                         today ? 'ring-1 ring-inset ring-stone-700/20' : ''
                       } ${isDropTarget ? 'bg-amber-500/10 ring-2 ring-inset ring-amber-400/40' : ''}`}
                     >

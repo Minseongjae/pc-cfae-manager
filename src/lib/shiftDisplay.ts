@@ -7,7 +7,7 @@ import {
   EMPLOYEE_CARD_CLASSES,
   resolveEmployeeScheduleColor,
 } from '@/lib/employeeColors';
-import { getShiftCardMinHeightFromShift } from '@/lib/shiftUtils';
+import { getShiftCardHeightFromShift } from '@/lib/shiftUtils';
 import { shiftTypeCardStyle } from '@/lib/scheduleShiftTypes';
 import type { ShiftType } from '@/types';
 
@@ -62,9 +62,17 @@ export function getShiftCardStyle(
     colorStyle = shiftTypeCardStyle('#9CA3AF');
   }
 
+  const cardHeight = getShiftCardHeightFromShift(shift, compact);
+
   return {
     ...colorStyle,
-    minHeight: getShiftCardMinHeightFromShift(shift, compact),
+    height: cardHeight,
+    minHeight: cardHeight,
+    boxSizing: 'border-box',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    overflow: 'hidden',
   };
 }
 
