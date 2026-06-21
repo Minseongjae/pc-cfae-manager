@@ -113,7 +113,7 @@ export function getRowMinHeightForShiftType(_shiftType?: ShiftType): number {
 }
 
 export function getEmptyCellMinHeightForShiftType(_shiftType?: ShiftType): number {
-  return 28;
+  return getShiftCardHeight(4, false) + 4;
 }
 
 /** Actual worked hours — prefer start/end times over stored duration label. */
