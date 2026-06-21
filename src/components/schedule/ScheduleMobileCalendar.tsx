@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { format, isSameDay, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Plus, X } from 'lucide-react';
@@ -46,6 +46,7 @@ interface ScheduleMobileCalendarProps {
 const MONTH_CELL_MIN_HEIGHT = 132;
 /** Minimum width per day column in week grid (px). */
 const WEEK_COL_MIN_WIDTH = 88;
+const WEEK_LABEL_WIDTH = 56;
 
 function weekdayHeaderOrder(weekStartsOn: 0 | 1): number[] {
   return weekStartsOn === 1 ? [1, 2, 3, 4, 5, 6, 0] : [0, 1, 2, 3, 4, 5, 6];
@@ -323,94 +324,107 @@ function WeekGrid({
     return map;
   }, [days, shifts]);
 
-  const gridMinWidth = 52 + days.length * WEEK_COL_MIN_WIDTH;
+  const gridMinWidth = WEEK_LABEL_WIDTH + days.length * WEEK_COL_MIN_WIDTH;
+  const gridTemplateColumns = `${WEEK_LABEL_WIDTH}px repeat(${days.length}, ${WEEK_COL_MIN_WIDTH}px)`;
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       <div className="flex-1 overflow-auto min-h-0">
-        <div style={{ minWidth: gridMinWidth }}>
-          <div className="flex shrink-0 border-b border-stone-200/80 sticky top-0 z-10 bg-white">
-            <div className="w-[52px] shrink-0 border-r border-stone-100 bg-stone-50/80" />
-            {days.map((day) => {
-              const today = isToday(day);
-              const dow = day.getDay();
-              return (
-                <div
-                  key={day.toISOString()}
-                  style={{ minWidth: WEEK_COL_MIN_WIDTH }}
-                  className={`flex-1 text-center py-2 border-r border-stone-100 last:border-r-0 ${today ? 'bg-amber-50/80' : 'bg-stone-50/80'}`}
-                >
-                  <div className={`text-xs font-semibold ${dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : 'text-stone-600'}`}>
-                    {KOREAN_WEEKDAYS[dow]}
-                  </div>
-                  <div className={dayNumberClasses(day, today, true)}>{day.getDate()}</div>
-                </div>
-              );
-            })}
-          </div>
-
-          {shiftTypes.map((row) => (
-            <div key={row.id} className="flex items-start border-b-2 border-stone-200">
+        <div
+          className="grid items-start"
+          style={{
+            minWidth: gridMinWidth,
+            gridTemplateColumns,
+            gridAutoRows: 'minmax(min-content, max-content)',
+          }}
+        >
+          <div
+            className="sticky top-0 left-0 z-20 border-b border-r border-stone-200/80 bg-stone-50/80"
+            style={{ gridColumn: 1, gridRow: 1, height: 52 }}
+          />
+          {days.map((day, dayIndex) => {
+            const today = isToday(day);
+            const dow = day.getDay();
+            return (
               <div
-                className="w-[56px] shrink-0 self-stretch flex items-start justify-center px-0.5 pt-1.5 pb-1 border-r border-stone-100 bg-stone-50/50"
-                style={{ color: row.color }}
+                key={day.toISOString()}
+                style={{ gridColumn: dayIndex + 2, gridRow: 1, height: 52 }}
+                className={`sticky top-0 z-10 text-center py-2 border-b border-r border-stone-100 last:border-r-0 ${today ? 'bg-amber-50/80' : 'bg-stone-50/80'}`}
               >
-                <span className="text-[9px] font-semibold leading-tight text-center break-keep">
-                  {row.name}
-                </span>
+                <div className={`text-xs font-semibold ${dow === 0 ? 'text-rose-500' : dow === 6 ? 'text-blue-500' : 'text-stone-600'}`}>
+                  {KOREAN_WEEKDAYS[dow]}
+                </div>
+                <div className={dayNumberClasses(day, today, true)}>{day.getDate()}</div>
               </div>
-              {days.map((day) => {
-                const key = `${scheduleDateKey(day.getFullYear(), day.getMonth() + 1, day.getDate())}-${row.id}`;
-                const cellShifts = shiftsByDayAndRow.get(key) ?? [];
-                const today = isToday(day);
-                const isDropTarget = dropTarget === key && draggingId != null;
+            );
+          })}
 
-                return (
-                  <div
-                    key={key}
-                    style={{ minWidth: WEEK_COL_MIN_WIDTH }}
-                    onDragOver={(e) => {
-                      if (readOnly || !onDragOver) return;
-                      e.preventDefault();
-                      onDragOver(key);
-                    }}
-                    onDrop={(e) => {
-                      if (readOnly || !onDrop) return;
-                      const shiftId = e.dataTransfer.getData('text/shift-id');
-                      if (shiftId) onDrop(shiftId, day, row.id);
-                    }}
-                    className={`flex-1 self-start border-r border-stone-50 last:border-r-0 p-0.5 flex flex-col gap-0.5 border-b-2 border-stone-200 ${cellBgClasses(day, today, true, false)} ${
-                      isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
-                    }`}
-                  >
-                    {cellShifts.map((s) => (
-                      <ShiftCard
-                        key={s.id}
-                        shift={s}
-                        compact
-                        readOnly={readOnly}
-                        isDragging={draggingId === s.id}
-                        onDragStart={onDragStart ?? (() => {})}
-                        onDragEnd={onDragEnd ?? (() => {})}
-                        onResize={onResize ?? (() => {})}
-                        onEdit={onEditShift}
-                      />
-                    ))}
-                    {cellShifts.length === 0 && onCreateInCell && !readOnly && (
-                      <button
-                        type="button"
-                        onClick={() => onCreateInCell(day, row.id)}
-                        style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
-                        className="w-full rounded-lg border border-dashed border-stone-300/60 text-stone-400 text-xs touch-target"
-                      >
-                        +
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
+          {shiftTypes.map((row, rowIndex) => {
+            const gridRow = rowIndex + 2;
+
+            return (
+              <Fragment key={row.id}>
+                <div
+                  className="sticky left-0 z-10 self-stretch flex items-start justify-center px-0.5 pt-1.5 pb-1 border-r border-b-2 border-stone-200 bg-stone-50/50"
+                  style={{ gridColumn: 1, gridRow, color: row.color }}
+                >
+                  <span className="text-[9px] font-semibold leading-tight text-center break-keep">
+                    {row.name}
+                  </span>
+                </div>
+                {days.map((day, dayIndex) => {
+                  const key = `${scheduleDateKey(day.getFullYear(), day.getMonth() + 1, day.getDate())}-${row.id}`;
+                  const cellShifts = shiftsByDayAndRow.get(key) ?? [];
+                  const today = isToday(day);
+                  const isDropTarget = dropTarget === key && draggingId != null;
+
+                  return (
+                    <div
+                      key={key}
+                      style={{ gridColumn: dayIndex + 2, gridRow }}
+                      onDragOver={(e) => {
+                        if (readOnly || !onDragOver) return;
+                        e.preventDefault();
+                        onDragOver(key);
+                      }}
+                      onDrop={(e) => {
+                        if (readOnly || !onDrop) return;
+                        const shiftId = e.dataTransfer.getData('text/shift-id');
+                        if (shiftId) onDrop(shiftId, day, row.id);
+                      }}
+                      className={`self-start w-full border-r border-b-2 border-stone-200 last:border-r-0 p-0.5 flex flex-col gap-0.5 ${cellBgClasses(day, today, true, false)} ${
+                        isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
+                      }`}
+                    >
+                      {cellShifts.map((s) => (
+                        <ShiftCard
+                          key={s.id}
+                          shift={s}
+                          compact
+                          readOnly={readOnly}
+                          isDragging={draggingId === s.id}
+                          onDragStart={onDragStart ?? (() => {})}
+                          onDragEnd={onDragEnd ?? (() => {})}
+                          onResize={onResize ?? (() => {})}
+                          onEdit={onEditShift}
+                        />
+                      ))}
+                      {cellShifts.length === 0 && onCreateInCell && !readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => onCreateInCell(day, row.id)}
+                          style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
+                          className="w-full rounded-lg border border-dashed border-stone-300/60 text-stone-400 text-xs touch-target"
+                        >
+                          +
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </Fragment>
+            );
+          })}
         </div>
       </div>
     </div>
