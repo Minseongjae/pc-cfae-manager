@@ -1,4 +1,4 @@
-import { Fragment, useMemo } from 'react';
+import { useMemo } from 'react';
 import { isToday } from 'date-fns';
 import { CalendarLegend } from './CalendarLegend';
 import { ShiftCard } from './ShiftCard';
@@ -146,9 +146,8 @@ export function ScheduleCalendar({
     return map;
   }, [days, shifts]);
 
-  const dayCount = Math.max(days.length, 1);
-  const gridMinWidth = rowLabelWidth + dayCount * dayCellWidth;
-  const gridTemplateColumns = `${rowLabelWidth}px repeat(${dayCount}, ${dayCellWidth}px)`;
+  const gridWidth = Math.max(days.length, 1) * dayCellWidth;
+  const tableMinWidth = rowLabelWidth + gridWidth;
 
   if (days.length === 0) {
     return (
@@ -166,126 +165,120 @@ export function ScheduleCalendar({
       <CalendarLegend compact={false} />
       <div className="card-elevated flex-1 overflow-hidden min-h-0">
         <div className="h-full overflow-auto min-h-0 scroll-smooth">
-          <div
-            className="grid items-start"
-            style={{
-              minWidth: gridMinWidth,
-              gridTemplateColumns,
-              gridAutoRows: 'minmax(min-content, max-content)',
-            }}
-          >
+          <div style={{ minWidth: tableMinWidth }}>
             <div
-              className="sticky top-0 left-0 z-30 border-b border-r border-stone-200 bg-stone-50/95 backdrop-blur-sm px-2 flex items-end pb-1.5"
-              style={{ gridColumn: 1, gridRow: 1, height: headerHeight }}
+              className="flex sticky top-0 z-20 border-b border-stone-200 bg-stone-50/95 backdrop-blur-sm"
+              style={{ height: headerHeight }}
             >
-              <span className="text-[10px] font-medium text-stone-400">구분</span>
+              <div
+                className="sticky left-0 z-30 shrink-0 border-r border-stone-200 bg-stone-50/95 px-2 flex items-end pb-1.5"
+                style={{ width: rowLabelWidth }}
+              >
+                <span className="text-[10px] font-medium text-stone-400">구분</span>
+              </div>
+
+              {days.map((day) => {
+                const dayNum = day.getDate();
+                const month = day.getMonth() + 1;
+                const dow = day.getDay();
+                const today = isToday(day);
+                const holidayName = getHolidayName(day);
+                const dateKey = scheduleDateKey(day.getFullYear(), month, dayNum);
+
+                return (
+                  <div
+                    key={dateKey}
+                    style={{ width: dayCellWidth }}
+                    title={holidayName ?? undefined}
+                    className={`shrink-0 flex flex-col items-center justify-center gap-0.5 text-xs border-r border-stone-200/80 ${dayHeaderClasses(day, today)}`}
+                  >
+                    {days.length > 1 && days.length < 28 && (
+                      <span className="text-[9px] text-stone-400">{month}월</span>
+                    )}
+                    <span className={dayNumberClasses(day, today)}>{dayNum}</span>
+                    <span className={`text-[10px] md:text-[11px] ${weekdayClasses(day, today)}`}>
+                      {KOREAN_WEEKDAYS[dow]}
+                    </span>
+                    {holidayName && (
+                      <span className="hidden md:block text-[9px] text-rose-600 truncate max-w-[90%] leading-none">
+                        {holidayName}
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            {days.map((day, dayIndex) => {
-              const dayNum = day.getDate();
-              const month = day.getMonth() + 1;
-              const dow = day.getDay();
-              const today = isToday(day);
-              const holidayName = getHolidayName(day);
-              const dateKey = scheduleDateKey(day.getFullYear(), month, dayNum);
-
-              return (
+            {shiftTypes.map((row) => (
+              <div key={row.id} className="flex items-start border-b-2 border-stone-300">
                 <div
-                  key={dateKey}
-                  style={{ gridColumn: dayIndex + 2, gridRow: 1, height: headerHeight }}
-                  title={holidayName ?? undefined}
-                  className={`sticky top-0 z-20 flex flex-col items-center justify-center gap-0.5 text-xs border-b border-r border-stone-200/80 ${dayHeaderClasses(day, today)}`}
+                  className="sticky left-0 z-10 self-stretch shrink-0 border-r border-stone-300 bg-stone-50 flex items-start justify-center px-1.5 pt-2 pb-2"
+                  style={{ width: rowLabelWidth }}
                 >
-                  {days.length > 1 && days.length < 28 && (
-                    <span className="text-[9px] text-stone-400">{month}월</span>
-                  )}
-                  <span className={dayNumberClasses(day, today)}>{dayNum}</span>
-                  <span className={`text-[10px] md:text-[11px] ${weekdayClasses(day, today)}`}>
-                    {KOREAN_WEEKDAYS[dow]}
-                  </span>
-                  {holidayName && (
-                    <span className="hidden md:block text-[9px] text-rose-600 truncate max-w-[90%] leading-none">
-                      {holidayName}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
-
-            {shiftTypes.map((row, rowIndex) => {
-              const gridRow = rowIndex + 2;
-
-              return (
-                <Fragment key={row.id}>
-                  <div
-                    className="sticky left-0 z-10 self-stretch border-r border-b-2 border-stone-300 bg-stone-50 flex items-start justify-center px-1.5 pt-2 pb-2"
-                    style={{ gridColumn: 1, gridRow }}
+                  <span
+                    className="text-[10px] md:text-[11px] font-bold leading-snug text-center break-keep"
+                    style={{ color: row.color }}
                   >
-                    <span
-                      className="text-[10px] md:text-[11px] font-bold leading-snug text-center break-keep"
-                      style={{ color: row.color }}
+                    {row.name}
+                  </span>
+                </div>
+
+                {days.map((day) => {
+                  const dayNum = day.getDate();
+                  const month = day.getMonth() + 1;
+                  const year = day.getFullYear();
+                  const dateKey = scheduleDateKey(year, month, dayNum);
+                  const cellKey = `${dateKey}-${row.id}`;
+                  const cellShifts = shiftsByDayAndRow.get(cellKey) ?? [];
+                  const isDropTarget = dropTarget === cellKey && draggingId !== null;
+                  const today = isToday(day);
+
+                  return (
+                    <div
+                      key={cellKey}
+                      style={{ width: dayCellWidth }}
+                      onDragOver={(e) => {
+                        if (readOnly) return;
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = 'move';
+                        onDragOver(cellKey);
+                      }}
+                      onDrop={(e) => {
+                        if (readOnly) return;
+                        const shiftId = e.dataTransfer.getData('text/shift-id');
+                        if (shiftId) onDrop(shiftId, day, row.id);
+                      }}
+                      className={`self-start shrink-0 border-r border-stone-300 p-0.5 flex flex-col gap-0.5 group/cell ${cellBackgroundClasses(day, today)} ${
+                        today ? 'ring-1 ring-inset ring-stone-700/15' : ''
+                      } ${isDropTarget ? 'bg-amber-500/10 ring-2 ring-inset ring-amber-400/40' : ''}`}
                     >
-                      {row.name}
-                    </span>
-                  </div>
-
-                  {days.map((day, dayIndex) => {
-                    const dayNum = day.getDate();
-                    const month = day.getMonth() + 1;
-                    const year = day.getFullYear();
-                    const dateKey = scheduleDateKey(year, month, dayNum);
-                    const cellKey = `${dateKey}-${row.id}`;
-                    const cellShifts = shiftsByDayAndRow.get(cellKey) ?? [];
-                    const isDropTarget = dropTarget === cellKey && draggingId !== null;
-                    const today = isToday(day);
-
-                    return (
-                      <div
-                        key={cellKey}
-                        style={{ gridColumn: dayIndex + 2, gridRow }}
-                        onDragOver={(e) => {
-                          if (readOnly) return;
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = 'move';
-                          onDragOver(cellKey);
-                        }}
-                        onDrop={(e) => {
-                          if (readOnly) return;
-                          const shiftId = e.dataTransfer.getData('text/shift-id');
-                          if (shiftId) onDrop(shiftId, day, row.id);
-                        }}
-                        className={`self-start w-full border-r border-b-2 border-stone-300 p-0.5 flex flex-col gap-0.5 group/cell ${cellBackgroundClasses(day, today)} ${
-                          today ? 'ring-1 ring-inset ring-stone-700/15' : ''
-                        } ${isDropTarget ? 'bg-amber-500/10 ring-2 ring-inset ring-amber-400/40' : ''}`}
-                      >
-                        {cellShifts.map((s) => (
-                          <ShiftCard
-                            key={s.id}
-                            shift={s}
-                            readOnly={readOnly}
-                            isDragging={draggingId === s.id}
-                            onDragStart={onDragStart}
-                            onDragEnd={onDragEnd}
-                            onResize={onResize}
-                            onEdit={onEditShift}
-                          />
-                        ))}
-                        {cellShifts.length === 0 && onCreateInCell && !readOnly && (
-                          <button
-                            type="button"
-                            onClick={() => onCreateInCell(day, row.id)}
-                            style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
-                            className="w-full rounded-md border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
-                          >
-                            + 추가
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </Fragment>
-              );
-            })}
+                      {cellShifts.map((s) => (
+                        <ShiftCard
+                          key={s.id}
+                          shift={s}
+                          readOnly={readOnly}
+                          isDragging={draggingId === s.id}
+                          onDragStart={onDragStart}
+                          onDragEnd={onDragEnd}
+                          onResize={onResize}
+                          onEdit={onEditShift}
+                        />
+                      ))}
+                      {cellShifts.length === 0 && onCreateInCell && !readOnly && (
+                        <button
+                          type="button"
+                          onClick={() => onCreateInCell(day, row.id)}
+                          style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
+                          className="w-full rounded-md border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
+                        >
+                          + 추가
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </div>
       </div>
