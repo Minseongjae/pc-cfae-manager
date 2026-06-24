@@ -757,6 +757,10 @@ export function moveShift(
     if (beforeIndex >= 0) insertIndex = beforeIndex;
   }
 
+  if (!locationChanged && insertIndex === (source.sortOrder ?? 0)) {
+    return data.scheduleShifts;
+  }
+
   const reorderedCell = [...cellShifts];
   reorderedCell.splice(insertIndex, 0, moved);
   const orderById = new Map(reorderedCell.map((shift, index) => [shift.id, index]));

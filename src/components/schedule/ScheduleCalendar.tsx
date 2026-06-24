@@ -1,7 +1,6 @@
 import { Fragment, useMemo } from 'react';
 import { isToday } from 'date-fns';
 import { CalendarLegend } from './CalendarLegend';
-import { ShiftCard } from './ShiftCard';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -15,8 +14,8 @@ import {
   KOREAN_WEEKDAYS,
 } from '@/lib/koreanHolidays';
 import { scheduleDateKey, shiftMatchesDay } from '@/lib/scheduleViewRange';
-import { getEmptyCellMinHeightForShiftType } from '@/lib/shiftUtils';
-import { encodeDropTarget, sortShiftsInCell } from '@/lib/scheduleShiftOrder';
+import { ScheduleShiftCell } from '@/components/schedule/ScheduleShiftCell';
+import { sortShiftsInCell } from '@/lib/scheduleShiftOrder';
 import { ScheduleMobileCalendar } from '@/components/schedule/ScheduleMobileCalendar';
 
 interface ScheduleCalendarProps {
@@ -244,51 +243,26 @@ export function ScheduleCalendar({
                       <div
                         key={cellKey}
                         style={{ gridColumn: dayIndex + 2, gridRow }}
-                        onDragOver={(e) => {
-                          if (readOnly) return;
-                          e.preventDefault();
-                          e.dataTransfer.dropEffect = 'move';
-                          onDragOver(cellKey);
-                        }}
-                        onDrop={(e) => {
-                          if (readOnly) return;
-                          const shiftId = e.dataTransfer.getData('text/shift-id');
-                          if (shiftId) onDrop(shiftId, day, row.id);
-                        }}
-                        className={`border-r border-b-2 border-stone-300 p-0.5 flex flex-col gap-0.5 min-h-0 overflow-hidden group/cell ${cellBackgroundClasses(day, today)} ${
+                        className={`border-r border-b-2 border-stone-300 p-0.5 min-h-0 overflow-hidden group/cell ${cellBackgroundClasses(day, today)} ${
                           today ? 'ring-1 ring-inset ring-stone-700/15' : ''
                         } ${isDropTarget ? 'bg-amber-500/10 ring-2 ring-inset ring-amber-400/40' : ''}`}
                       >
-                        {cellShifts.map((s) => (
-                          <ShiftCard
-                            key={s.id}
-                            shift={s}
-                            readOnly={readOnly}
-                            isDragging={draggingId === s.id}
-                            showDropBefore={
-                              dropTarget === encodeDropTarget(cellKey, s.id) && draggingId !== s.id
-                            }
-                            onDragStart={onDragStart}
-                            onDragEnd={onDragEnd}
-                            onResize={onResize}
-                            onEdit={onEditShift}
-                            onDragOverCard={() => onDragOver(encodeDropTarget(cellKey, s.id))}
-                            onDropOnCard={(beforeShiftId, draggedShiftId) => {
-                              if (readOnly) return;
-                              onDrop(draggedShiftId, day, row.id, beforeShiftId);
-                            }}
-                          />
-                        ))}
-                        {cellShifts.length === 0 && onCreateInCell && !readOnly && (
-                          <button
-                            type="button"
-                            onClick={() => onCreateInCell(day, row.id)}
-                            style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
-                            className="w-full rounded-md border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
-                          >
-                            + 추가
-                          </button>
-                        )}
+                        <ScheduleShiftCell
+                          cellKey={cellKey}
+                          cellShifts={cellShifts}
+                          row={row}
+                          day={day}
+                          draggingId={draggingId}
+                          dropTarget={dropTarget}
+                          readOnly={readOnly}
+                          onDragStart={onDragStart}
+                          onDragEnd={onDragEnd}
+                          onDragOver={onDragOver}
+                          onDrop={onDrop}
+                          onResize={onResize}
+                          onEditShift={onEditShift}
+                          onCreateInCell={onCreateInCell}
+                        />
                       </div>
                     );
                   })}

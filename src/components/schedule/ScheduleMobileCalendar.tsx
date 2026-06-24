@@ -3,6 +3,7 @@ import { format, isSameDay, isToday } from 'date-fns';
 import { ko } from 'date-fns/locale';
 import { Plus, X } from 'lucide-react';
 import { ShiftCard } from './ShiftCard';
+import { ScheduleShiftCell } from './ScheduleShiftCell';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 import { useScheduleShiftTypes, findShiftTypeById } from '@/hooks/useScheduleShiftTypes';
 import {
@@ -12,8 +13,7 @@ import {
   scheduleDateKey,
   shiftMatchesDay,
 } from '@/lib/scheduleViewRange';
-import { getEmptyCellMinHeightForShiftType } from '@/lib/shiftUtils';
-import { encodeDropTarget, sortShiftsInCell } from '@/lib/scheduleShiftOrder';
+import { sortShiftsInCell } from '@/lib/scheduleShiftOrder';
 import {
   getHolidayName,
   isPublicHoliday,
@@ -370,51 +370,27 @@ function WeekGrid({
                   <div
                     key={key}
                     style={{ minWidth: WEEK_COL_MIN_WIDTH }}
-                    onDragOver={(e) => {
-                      if (readOnly || !onDragOver) return;
-                      e.preventDefault();
-                      onDragOver(key);
-                    }}
-                    onDrop={(e) => {
-                      if (readOnly || !onDrop) return;
-                      const shiftId = e.dataTransfer.getData('text/shift-id');
-                      if (shiftId) onDrop(shiftId, day, row.id);
-                    }}
-                    className={`flex-1 border-r border-stone-50 last:border-r-0 p-0.5 flex flex-col gap-0.5 min-h-0 overflow-hidden border-b-2 border-stone-200 ${cellBgClasses(day, today, true, false)} ${
+                    className={`flex-1 border-r border-stone-50 last:border-r-0 p-0.5 min-h-0 overflow-hidden border-b-2 border-stone-200 ${cellBgClasses(day, today, true, false)} ${
                       isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
                     }`}
                   >
-                    {cellShifts.map((s) => (
-                      <ShiftCard
-                        key={s.id}
-                        shift={s}
-                        compact
-                        readOnly={readOnly}
-                        isDragging={draggingId === s.id}
-                        showDropBefore={
-                          dropTarget === encodeDropTarget(key, s.id) && draggingId !== s.id
-                        }
-                        onDragStart={onDragStart ?? (() => {})}
-                        onDragEnd={onDragEnd ?? (() => {})}
-                        onResize={onResize ?? (() => {})}
-                        onEdit={onEditShift}
-                        onDragOverCard={() => onDragOver?.(encodeDropTarget(key, s.id))}
-                        onDropOnCard={(beforeShiftId, draggedShiftId) => {
-                          if (readOnly || !onDrop) return;
-                          onDrop(draggedShiftId, day, row.id, beforeShiftId);
-                        }}
-                      />
-                    ))}
-                    {cellShifts.length === 0 && onCreateInCell && !readOnly && (
-                      <button
-                        type="button"
-                        onClick={() => onCreateInCell(day, row.id)}
-                        style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
-                        className="w-full rounded-lg border border-dashed border-stone-300/60 text-stone-400 text-xs touch-target"
-                      >
-                        +
-                      </button>
-                    )}
+                    <ScheduleShiftCell
+                      cellKey={key}
+                      cellShifts={cellShifts}
+                      row={row}
+                      day={day}
+                      draggingId={draggingId ?? null}
+                      dropTarget={dropTarget ?? null}
+                      compact
+                      readOnly={readOnly}
+                      onDragStart={onDragStart ?? (() => {})}
+                      onDragEnd={onDragEnd ?? (() => {})}
+                      onDragOver={onDragOver ?? (() => {})}
+                      onDrop={onDrop ?? (() => {})}
+                      onResize={onResize ?? (() => {})}
+                      onEditShift={onEditShift}
+                      onCreateInCell={onCreateInCell}
+                    />
                   </div>
                 );
               })}

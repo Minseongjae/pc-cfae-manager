@@ -12,15 +12,12 @@ import { GripHorizontal } from 'lucide-react';
 interface ShiftCardProps {
   shift: ScheduleShift;
   isDragging?: boolean;
-  showDropBefore?: boolean;
   readOnly?: boolean;
   compact?: boolean;
   onDragStart: (shiftId: string) => void;
   onDragEnd: () => void;
   onResize: (shiftId: string, deltaHours: number) => void;
   onEdit: (shift: ScheduleShift) => void;
-  onDragOverCard?: () => void;
-  onDropOnCard?: (insertBeforeShiftId: string, draggedShiftId: string) => void;
 }
 
 const RESIZE_PX_PER_HOUR = 18;
@@ -28,15 +25,12 @@ const RESIZE_PX_PER_HOUR = 18;
 export function ShiftCard({
   shift,
   isDragging,
-  showDropBefore = false,
   readOnly = false,
   compact = false,
   onDragStart,
   onDragEnd,
   onResize,
   onEdit,
-  onDragOverCard,
-  onDropOnCard,
 }: ShiftCardProps) {
   const { beginDrag, endDrag } = useDragGuard();
   const { employees } = useEmployees();
@@ -112,6 +106,16 @@ export function ShiftCard({
         didDragRef.current = true;
         e.dataTransfer.setData('text/shift-id', shift.id);
         e.dataTransfer.effectAllowed = 'move';
+        if (e.dataTransfer.setDragImage) {
+          const node = e.currentTarget.cloneNode(true) as HTMLElement;
+          node.style.width = `${e.currentTarget.clientWidth}px`;
+          node.style.opacity = '0.92';
+          node.style.transform = 'scale(1.02)';
+          node.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
+          document.body.appendChild(node);
+          e.dataTransfer.setDragImage(node, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+          window.setTimeout(() => document.body.removeChild(node), 0);
+        }
         onDragStart(shift.id);
       }}
       onDragEnd={() => {
@@ -120,35 +124,14 @@ export function ShiftCard({
           didDragRef.current = false;
         }, 100);
       }}
-      onDragOver={(e) => {
-        if (readOnly) return;
-        e.preventDefault();
-        e.stopPropagation();
-        e.dataTransfer.dropEffect = 'move';
-        onDragOverCard?.();
-      }}
-      onDrop={(e) => {
-        if (readOnly) return;
-        e.preventDefault();
-        e.stopPropagation();
-        const draggedShiftId = e.dataTransfer.getData('text/shift-id');
-        if (draggedShiftId && draggedShiftId !== shift.id) {
-          onDropOnCard?.(shift.id, draggedShiftId);
-        }
-      }}
       onClick={handleClick}
       style={cardStyle}
-      className={`group relative shrink-0 border select-none ${colorClass} ${
+      className={`group relative shrink-0 border select-none transition-[opacity,transform,box-shadow] duration-150 ease-out ${colorClass} ${
         compact ? 'rounded-md px-1 py-0.5 leading-tight' : 'rounded-md px-1.5 py-1 leading-snug'
       } ${
         readOnly ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
-      } ${isDragging ? 'opacity-50' : 'opacity-100'} ${
-        showDropBefore ? 'ring-2 ring-inset ring-amber-400/70' : ''
-      }`}
+      } ${isDragging ? 'shadow-sm' : 'opacity-100'}`}
     >
-      {showDropBefore && (
-        <div className="absolute -top-0.5 left-1 right-1 h-0.5 rounded-full bg-amber-500 pointer-events-none" />
-      )}
       {!readOnly && !compact && (
       <div
         className="absolute top-1 right-1 w-4 h-4 rounded opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing"
@@ -160,7 +143,7 @@ export function ShiftCard({
           e.dataTransfer.effectAllowed = 'move';
           onDragStart(shift.id);
         }}
-        title="드래그하여 이동"
+        title="드래그하여 순서 변경"
       />
       )}
       <div className={`font-semibold tracking-tight truncate ${compact ? 'text-xs pr-0' : 'text-sm pr-2'}`}>
