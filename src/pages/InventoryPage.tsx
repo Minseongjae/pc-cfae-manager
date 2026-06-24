@@ -5,6 +5,7 @@ import {
   deleteInventoryItem,
   getInventoryCategories,
   getInventoryItems,
+  renameInventoryItem,
   saveInventoryCategoryName,
   saveInventoryItem,
   type InventoryItem,
@@ -30,6 +31,8 @@ export function InventoryPage() {
   const [showForm, setShowForm] = useState(false);
   const [editingTabId, setEditingTabId] = useState<InventoryCategoryId | null>(null);
   const [tabNameDraft, setTabNameDraft] = useState('');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  const [itemNameDraft, setItemNameDraft] = useState('');
 
   const refresh = useCallback(() => {
     setCategories(getInventoryCategories());
@@ -119,6 +122,26 @@ export function InventoryPage() {
   const cancelTabRename = () => {
     setEditingTabId(null);
     setTabNameDraft('');
+  };
+
+  const startItemRename = (item: InventoryItem) => {
+    setEditingItemId(item.id);
+    setItemNameDraft(item.name);
+  };
+
+  const commitItemRename = () => {
+    if (!editingItemId) return;
+    const updated = renameInventoryItem(editingItemId, itemNameDraft);
+    if (updated) {
+      setEditingItemId(null);
+      setItemNameDraft('');
+      refresh();
+    }
+  };
+
+  const cancelItemRename = () => {
+    setEditingItemId(null);
+    setItemNameDraft('');
   };
 
   return (
@@ -251,8 +274,35 @@ export function InventoryPage() {
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-semibold text-stone-800 whitespace-nowrap truncate">{item.name}</p>
+                  <div className="min-w-0 flex-1">
+                    {editingItemId === item.id ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          className="input-luxury text-sm py-1.5 flex-1 min-w-0"
+                          value={itemNameDraft}
+                          onChange={(e) => setItemNameDraft(e.target.value)}
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') commitItemRename();
+                            if (e.key === 'Escape') cancelItemRename();
+                          }}
+                        />
+                        <button type="button" className="p-1 text-emerald-600 shrink-0" onClick={commitItemRename}>
+                          <Check size={14} />
+                        </button>
+                        <button type="button" className="p-1 text-stone-400 shrink-0" onClick={cancelItemRename}>
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <p
+                        className="font-semibold text-stone-800 whitespace-nowrap truncate cursor-text"
+                        title="더블클릭하여 이름 수정"
+                        onDoubleClick={() => startItemRename(item)}
+                      >
+                        {item.name}
+                      </p>
+                    )}
                     <p className="text-xs text-stone-400 mt-1">
                       유통기한 {item.expiryDate || '미입력'}
                     </p>

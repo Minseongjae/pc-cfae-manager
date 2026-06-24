@@ -20,14 +20,25 @@ export function calculateShiftHours(startTime: string, endTime: string): number 
 }
 
 export function formatDurationLabel(hours: number): string {
-  return String(Math.round(hours)).padStart(2, '0');
+  const halfHour = Math.round(hours * 2) / 2;
+  if (Number.isInteger(halfHour)) {
+    return String(halfHour).padStart(2, '0');
+  }
+  return halfHour.toFixed(1);
+}
+
+export function formatWorkedHoursDisplay(hours: number): string {
+  const halfHour = Math.round(hours * 2) / 2;
+  return Number.isInteger(halfHour) ? String(halfHour) : halfHour.toFixed(1);
 }
 
 export function parseShiftDurationHours(duration: string | number | undefined): number {
   if (typeof duration === 'number' && Number.isFinite(duration) && duration > 0) {
     return duration;
   }
-  const parsed = parseInt(String(duration ?? ''), 10);
+  const raw = String(duration ?? '').trim();
+  if (!raw) return 1;
+  const parsed = Number.parseFloat(raw);
   if (Number.isFinite(parsed) && parsed > 0) return parsed;
   return 1;
 }

@@ -2,7 +2,7 @@ import { useRef, useCallback, useMemo } from 'react';
 import { useDragGuard } from '@/contexts/DragGuardContext';
 import type { ScheduleShift } from '@/data/mockSchedule';
 import { getShiftCardColorClass, getShiftCardStyle } from '@/lib/shiftDisplay';
-import { getShiftWorkedHours } from '@/lib/shiftUtils';
+import { formatWorkedHoursDisplay, getShiftWorkedHours } from '@/lib/shiftUtils';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -12,12 +12,15 @@ import { GripHorizontal } from 'lucide-react';
 interface ShiftCardProps {
   shift: ScheduleShift;
   isDragging?: boolean;
+  showDropBefore?: boolean;
   readOnly?: boolean;
   compact?: boolean;
   onDragStart: (shiftId: string) => void;
   onDragEnd: () => void;
   onResize: (shiftId: string, deltaHours: number) => void;
   onEdit: (shift: ScheduleShift) => void;
+  onDragOverCard?: () => void;
+  onDropOnCard?: (insertBeforeShiftId: string, draggedShiftId: string) => void;
 }
 
 const RESIZE_PX_PER_HOUR = 18;
@@ -25,12 +28,15 @@ const RESIZE_PX_PER_HOUR = 18;
 export function ShiftCard({
   shift,
   isDragging,
+  showDropBefore = false,
   readOnly = false,
   compact = false,
   onDragStart,
   onDragEnd,
   onResize,
   onEdit,
+  onDragOverCard,
+  onDropOnCard,
 }: ShiftCardProps) {
   const { beginDrag, endDrag } = useDragGuard();
   const { employees } = useEmployees();
@@ -114,14 +120,35 @@ export function ShiftCard({
           didDragRef.current = false;
         }, 100);
       }}
+      onDragOver={(e) => {
+        if (readOnly) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        onDragOverCard?.();
+      }}
+      onDrop={(e) => {
+        if (readOnly) return;
+        e.preventDefault();
+        e.stopPropagation();
+        const draggedShiftId = e.dataTransfer.getData('text/shift-id');
+        if (draggedShiftId && draggedShiftId !== shift.id) {
+          onDropOnCard?.(shift.id, draggedShiftId);
+        }
+      }}
       onClick={handleClick}
       style={cardStyle}
       className={`group relative shrink-0 border select-none ${colorClass} ${
         compact ? 'rounded-md px-1 py-0.5 leading-tight' : 'rounded-md px-1.5 py-1 leading-snug'
       } ${
-        readOnly ? 'cursor-default' : 'cursor-pointer'
-      } ${isDragging ? 'opacity-50' : 'opacity-100'}`}
+        readOnly ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
+      } ${isDragging ? 'opacity-50' : 'opacity-100'} ${
+        showDropBefore ? 'ring-2 ring-inset ring-amber-400/70' : ''
+      }`}
     >
+      {showDropBefore && (
+        <div className="absolute -top-0.5 left-1 right-1 h-0.5 rounded-full bg-amber-500 pointer-events-none" />
+      )}
       {!readOnly && !compact && (
       <div
         className="absolute top-1 right-1 w-4 h-4 rounded opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing"
@@ -142,7 +169,7 @@ export function ShiftCard({
       <div className={`font-medium truncate ${compact ? 'text-[11px] opacity-90' : 'text-xs opacity-90'}`}>
         {shift.startTime}–{shift.endTime}
         {!compact && (
-          <span className="opacity-80"> · {Math.round(workedHours)}h</span>
+          <span className="opacity-80"> · {formatWorkedHoursDisplay(workedHours)}h</span>
         )}
       </div>
 

@@ -81,9 +81,14 @@ export function SchedulePage() {
     requireAdmin(() => openEdit(shift));
   };
 
-  const guardedDrop = (shiftId: string, targetDate: Date, rowId: ShiftRowId) => {
+  const guardedDrop = (
+    shiftId: string,
+    targetDate: Date,
+    rowId: ShiftRowId,
+    insertBeforeShiftId?: string
+  ) => {
     if (!isAdmin) return;
-    handleDrop(shiftId, targetDate, rowId);
+    handleDrop(shiftId, targetDate, rowId, insertBeforeShiftId);
   };
 
   const guardedResize = (shiftId: string, deltaHours: number) => {

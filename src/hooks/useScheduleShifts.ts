@@ -75,10 +75,22 @@ export function useScheduleShifts(visibleDays: Date[]) {
   }, []);
 
   const handleDrop = useCallback(
-    (shiftId: string, targetDate: Date, rowId: ShiftRowId) => {
+    (
+      shiftId: string,
+      targetDate: Date,
+      rowId: ShiftRowId,
+      insertBeforeShiftId?: string
+    ) => {
       if (!isDateWithinScheduleRange(targetDate)) return;
       const { year, month, day } = dateToScheduleParts(targetDate);
-      const updated = moveShiftInStorage(shiftId, day, rowId, year, month);
+      const updated = moveShiftInStorage(
+        shiftId,
+        day,
+        rowId,
+        year,
+        month,
+        insertBeforeShiftId ?? null
+      );
       setShifts(filterVisibleShifts(updated, visibleDays));
       setDraggingId(null);
       setDropTarget(null);

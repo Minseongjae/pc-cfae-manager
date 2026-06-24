@@ -10,6 +10,8 @@ export interface ScheduleShift {
   startTime: string;
   endTime: string;
   duration: string;
+  /** Stack order within the same day/row cell (0 = top). */
+  sortOrder?: number;
 }
 
 function shift(

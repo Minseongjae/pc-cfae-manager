@@ -13,6 +13,7 @@ import {
   shiftMatchesDay,
 } from '@/lib/scheduleViewRange';
 import { getEmptyCellMinHeightForShiftType } from '@/lib/shiftUtils';
+import { encodeDropTarget, sortShiftsInCell } from '@/lib/scheduleShiftOrder';
 import {
   getHolidayName,
   isPublicHoliday,
@@ -36,7 +37,7 @@ interface ScheduleMobileCalendarProps {
   onDragStart?: (shiftId: string) => void;
   onDragEnd?: () => void;
   onDragOver?: (cellKey: string) => void;
-  onDrop?: (shiftId: string, targetDate: Date, rowId: ShiftRowId) => void;
+  onDrop?: (shiftId: string, targetDate: Date, rowId: ShiftRowId, insertBeforeShiftId?: string) => void;
   onResize?: (shiftId: string, deltaHours: number) => void;
   onEditShift: (shift: ScheduleShift) => void;
   onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
@@ -304,7 +305,7 @@ function WeekGrid({
   onDragStart?: (shiftId: string) => void;
   onDragEnd?: () => void;
   onDragOver?: (cellKey: string) => void;
-  onDrop?: (shiftId: string, targetDate: Date, rowId: ShiftRowId) => void;
+  onDrop?: (shiftId: string, targetDate: Date, rowId: ShiftRowId, insertBeforeShiftId?: string) => void;
   onResize?: (shiftId: string, deltaHours: number) => void;
   onEditShift: (shift: ScheduleShift) => void;
   onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
@@ -361,9 +362,9 @@ function WeekGrid({
               </div>
               {days.map((day) => {
                 const key = `${scheduleDateKey(day.getFullYear(), day.getMonth() + 1, day.getDate())}-${row.id}`;
-                const cellShifts = shiftsByDayAndRow.get(key) ?? [];
+                const cellShifts = sortShiftsInCell(shiftsByDayAndRow.get(key) ?? []);
                 const today = isToday(day);
-                const isDropTarget = dropTarget === key && draggingId != null;
+                const isDropTarget = dropTarget?.startsWith(key) && draggingId != null;
 
                 return (
                   <div
@@ -390,10 +391,18 @@ function WeekGrid({
                         compact
                         readOnly={readOnly}
                         isDragging={draggingId === s.id}
+                        showDropBefore={
+                          dropTarget === encodeDropTarget(key, s.id) && draggingId !== s.id
+                        }
                         onDragStart={onDragStart ?? (() => {})}
                         onDragEnd={onDragEnd ?? (() => {})}
                         onResize={onResize ?? (() => {})}
                         onEdit={onEditShift}
+                        onDragOverCard={() => onDragOver?.(encodeDropTarget(key, s.id))}
+                        onDropOnCard={(beforeShiftId, draggedShiftId) => {
+                          if (readOnly || !onDrop) return;
+                          onDrop(draggedShiftId, day, row.id, beforeShiftId);
+                        }}
                       />
                     ))}
                     {cellShifts.length === 0 && onCreateInCell && !readOnly && (

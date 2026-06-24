@@ -6,6 +6,11 @@ import {
   createShiftId,
   updateShiftDuration,
 } from '@/lib/shiftUtils';
+import {
+  normalizeShiftSortOrders,
+  shiftCellKey,
+  sortShiftsInCell,
+} from '@/lib/scheduleShiftOrder';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { resolveEmployeeColor } from '@/lib/employeeColors';
 import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
@@ -692,14 +697,21 @@ export function getShiftTypes(): ShiftType[] {
 }
 
 export function getScheduleShifts(year?: number, month?: number): ScheduleShift[] {
-  const shifts = readStorage().scheduleShifts;
+  const data = readStorage();
+  let shifts = data.scheduleShifts;
+  const needsSortMigration = shifts.some((shift) => typeof shift.sortOrder !== 'number');
+  if (needsSortMigration) {
+    shifts = normalizeShiftSortOrders(shifts);
+    data.scheduleShifts = shifts;
+    writeStorage(data);
+  }
   if (year === undefined || month === undefined) return shifts;
   return shifts.filter((s) => s.year === year && s.month === month);
 }
 
 export function saveScheduleShifts(shifts: ScheduleShift[]): void {
   const data = readStorage();
-  data.scheduleShifts = shifts;
+  data.scheduleShifts = normalizeShiftSortOrders(shifts);
   writeStorage(data);
 }
 
@@ -708,22 +720,58 @@ export function moveShift(
   targetDay: number,
   targetRowId: ShiftRowId,
   year: number,
-  month: number
+  month: number,
+  insertBeforeShiftId?: string | null
 ): ScheduleShift[] {
   const data = readStorage();
-  const updated = data.scheduleShifts.map((s) => {
-    if (s.id !== shiftId) return s;
-    return {
-      ...s,
-      day: targetDay,
-      rowId: targetRowId,
-      year,
-      month,
-      id: createShiftId(targetDay, targetRowId, s.name),
-    };
-  });
+  const source = data.scheduleShifts.find((shift) => shift.id === shiftId);
+  if (!source) return data.scheduleShifts;
+
+  const moved: ScheduleShift = {
+    ...source,
+    day: targetDay,
+    rowId: targetRowId,
+    year,
+    month,
+  };
+
+  const locationChanged =
+    source.day !== targetDay ||
+    source.rowId !== targetRowId ||
+    source.year !== year ||
+    source.month !== month;
+
+  if (locationChanged || source.name !== moved.name) {
+    moved.id = createShiftId(targetDay, targetRowId, moved.name);
+  }
+
+  const targetCellKey = shiftCellKey(moved);
+  const cellShifts = sortShiftsInCell(
+    data.scheduleShifts
+      .filter((shift) => shift.id !== shiftId && shiftCellKey(shift) === targetCellKey)
+  );
+
+  let insertIndex = cellShifts.length;
+  if (insertBeforeShiftId) {
+    const beforeIndex = cellShifts.findIndex((shift) => shift.id === insertBeforeShiftId);
+    if (beforeIndex >= 0) insertIndex = beforeIndex;
+  }
+
+  const reorderedCell = [...cellShifts];
+  reorderedCell.splice(insertIndex, 0, moved);
+  const orderById = new Map(reorderedCell.map((shift, index) => [shift.id, index]));
+
+  const updated = data.scheduleShifts
+    .filter((shift) => shift.id !== shiftId && shiftCellKey(shift) !== targetCellKey)
+    .concat(
+      reorderedCell.map((shift) => ({
+        ...shift,
+        sortOrder: orderById.get(shift.id) ?? 0,
+      }))
+    );
+
   saveScheduleShifts(updated);
-  return updated;
+  return getScheduleShifts();
 }
 
 export function resizeShift(shiftId: string, deltaHours: number): ScheduleShift[] {
@@ -754,20 +802,32 @@ function buildShiftFromInput(input: ShiftInput, id?: string): ScheduleShift {
 
 export function createShift(input: ShiftInput): ScheduleShift[] {
   const data = readStorage();
-  const newShift = buildShiftFromInput(input);
-  const updated = [...data.scheduleShifts, newShift];
-  saveScheduleShifts(updated);
-  return updated;
+  const cellKey = shiftCellKey({
+    year: input.year,
+    month: input.month,
+    day: input.day,
+    rowId: input.rowId,
+  });
+  const nextOrder = data.scheduleShifts.filter((shift) => shiftCellKey(shift) === cellKey).length;
+  const newShift: ScheduleShift = {
+    ...buildShiftFromInput(input),
+    sortOrder: nextOrder,
+  };
+  saveScheduleShifts([...data.scheduleShifts, newShift]);
+  return getScheduleShifts();
 }
 
 export function updateShift(shiftId: string, input: ShiftInput): ScheduleShift[] {
   const data = readStorage();
   const updated = data.scheduleShifts.map((s) => {
     if (s.id !== shiftId) return s;
-    return buildShiftFromInput(input, createShiftId(input.day, input.rowId, input.name));
+    return {
+      ...buildShiftFromInput(input, createShiftId(input.day, input.rowId, input.name)),
+      sortOrder: s.sortOrder,
+    };
   });
   saveScheduleShifts(updated);
-  return updated;
+  return getScheduleShifts();
 }
 
 export function deleteShift(shiftId: string): ScheduleShift[] {
@@ -965,21 +1025,42 @@ export function saveInventoryItem(
 ): InventoryItem {
   const data = readStorage();
   const now = new Date().toISOString();
+  const existing = input.id ? data.inventoryItems.find((row) => row.id === input.id) : undefined;
   const item: InventoryItem = {
     id: input.id ?? createId('inv'),
-    categoryId: normalizeInventoryCategoryId(input.categoryId),
-    name: input.name.trim(),
-    currentStock: Math.max(0, input.currentStock),
-    minStock: Math.max(0, input.minStock),
-    expiryDate: input.expiryDate,
+    categoryId: normalizeInventoryCategoryId(input.categoryId ?? existing?.categoryId),
+    name: input.name.trim() || existing?.name || '',
+    currentStock: Math.max(0, input.currentStock ?? existing?.currentStock ?? 0),
+    minStock: Math.max(0, input.minStock ?? existing?.minStock ?? 0),
+    expiryDate: input.expiryDate ?? existing?.expiryDate ?? '',
     updatedAt: now,
   };
+  if (!item.name) {
+    throw new Error('상품명은 비워둘 수 없습니다.');
+  }
   const index = data.inventoryItems.findIndex((row) => row.id === item.id);
   if (index >= 0) data.inventoryItems[index] = item;
   else data.inventoryItems.push(item);
   writeStorage(data);
   window.dispatchEvent(new Event(INVENTORY_CHANGED_EVENT));
   return item;
+}
+
+export function renameInventoryItem(id: string, name: string): InventoryItem | null {
+  const trimmed = name.trim();
+  if (!trimmed) return null;
+  const data = readStorage();
+  const index = data.inventoryItems.findIndex((row) => row.id === id);
+  if (index < 0) return null;
+  const updated: InventoryItem = {
+    ...data.inventoryItems[index],
+    name: trimmed,
+    updatedAt: new Date().toISOString(),
+  };
+  data.inventoryItems[index] = updated;
+  writeStorage(data);
+  window.dispatchEvent(new Event(INVENTORY_CHANGED_EVENT));
+  return updated;
 }
 
 export function deleteInventoryItem(id: string): void {
