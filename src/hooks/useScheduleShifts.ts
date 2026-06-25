@@ -62,7 +62,9 @@ export function useScheduleShifts(visibleDays: Date[]) {
   }, [refresh]);
 
   const handleDragStart = useCallback((shiftId: string) => {
-    setDraggingId(shiftId);
+    requestAnimationFrame(() => {
+      setDraggingId(shiftId);
+    });
   }, []);
 
   const handleDragEnd = useCallback(() => {

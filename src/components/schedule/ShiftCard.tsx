@@ -21,6 +21,7 @@ interface ShiftCardProps {
 }
 
 const RESIZE_PX_PER_HOUR = 18;
+const CLICK_MOVE_THRESHOLD = 5;
 
 export function ShiftCard({
   shift,
@@ -57,6 +58,7 @@ export function ShiftCard({
     };
   }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode, compact]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
+  const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const didDragRef = useRef(false);
 
   const handleResizeStart = useCallback(
@@ -89,73 +91,52 @@ export function ShiftCard({
     [shift.id, onResize, beginDrag, endDrag]
   );
 
-  const handleClick = () => {
+  const handlePointerDown = (event: React.PointerEvent) => {
     if (readOnly) return;
-    if (didDragRef.current) {
+    pointerStartRef.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handlePointerUp = (event: React.PointerEvent) => {
+    if (readOnly) return;
+    const start = pointerStartRef.current;
+    pointerStartRef.current = null;
+    if (!start || didDragRef.current) {
       didDragRef.current = false;
       return;
     }
+
+    const dx = Math.abs(event.clientX - start.x);
+    const dy = Math.abs(event.clientY - start.y);
+    if (dx > CLICK_MOVE_THRESHOLD || dy > CLICK_MOVE_THRESHOLD) return;
+
     onEdit(shift);
   };
 
   return (
     <div
       draggable={!readOnly}
+      onPointerDown={handlePointerDown}
+      onPointerUp={handlePointerUp}
       onDragStart={(e) => {
         if (readOnly) return;
         didDragRef.current = true;
         e.dataTransfer.setData('text/shift-id', shift.id);
         e.dataTransfer.effectAllowed = 'move';
-        if (e.dataTransfer.setDragImage) {
-          const node = e.currentTarget.cloneNode(true) as HTMLElement;
-          node.style.width = `${e.currentTarget.clientWidth}px`;
-          node.style.opacity = '0.92';
-          node.style.transform = 'scale(1.02)';
-          node.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
-          document.body.appendChild(node);
-          e.dataTransfer.setDragImage(node, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-          window.setTimeout(() => document.body.removeChild(node), 0);
-        }
         onDragStart(shift.id);
       }}
       onDragEnd={() => {
         onDragEnd();
-        setTimeout(() => {
+        window.setTimeout(() => {
           didDragRef.current = false;
-        }, 100);
+        }, 0);
       }}
-      onClick={handleClick}
       style={cardStyle}
-      className={`group relative shrink-0 border select-none transition-[opacity,transform,box-shadow] duration-150 ease-out ${colorClass} ${
+      className={`group relative shrink-0 border select-none touch-none transition-[opacity,transform,box-shadow] duration-150 ease-out ${colorClass} ${
         compact ? 'rounded-md px-1 py-0.5 leading-tight' : 'rounded-md px-1.5 py-1 leading-snug'
       } ${
         readOnly ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
       } ${isDragging ? 'shadow-sm' : 'opacity-100'}`}
     >
-      {!readOnly && !compact && (
-      <div
-        className="absolute top-1 right-1 w-4 h-4 rounded opacity-0 group-hover:opacity-60 cursor-grab active:cursor-grabbing"
-        draggable
-        onDragStart={(e) => {
-          e.stopPropagation();
-          didDragRef.current = true;
-          e.dataTransfer.setData('text/shift-id', shift.id);
-          e.dataTransfer.effectAllowed = 'move';
-          onDragStart(shift.id);
-        }}
-        title="드래그하여 순서 변경"
-      />
-      )}
-      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-xs pr-0' : 'text-sm pr-2'}`}>
-        {shift.name}
-      </div>
-      <div className={`font-medium truncate ${compact ? 'text-[11px] opacity-90' : 'text-xs opacity-90'}`}>
-        {shift.startTime}–{shift.endTime}
-        {!compact && (
-          <span className="opacity-80"> · {formatWorkedHoursDisplay(workedHours)}h</span>
-        )}
-      </div>
-
       {!readOnly && !compact && (
       <div
         onMouseDown={handleResizeStart}
@@ -166,6 +147,15 @@ export function ShiftCard({
         <GripHorizontal size={12} className="text-stone-400" />
       </div>
       )}
+      <div className={`font-semibold tracking-tight truncate ${compact ? 'text-xs pr-0' : 'text-sm pr-2'}`}>
+        {shift.name}
+      </div>
+      <div className={`font-medium truncate ${compact ? 'text-[11px] opacity-90' : 'text-xs opacity-90'}`}>
+        {shift.startTime}–{shift.endTime}
+        {!compact && (
+          <span className="opacity-80"> · {formatWorkedHoursDisplay(workedHours)}h</span>
+        )}
+      </div>
     </div>
   );
 }

@@ -76,8 +76,8 @@ export function ScheduleShiftCell({
     return getShiftCardHeightFromShift(draggedShift, compact);
   }, [compact, draggedShift]);
 
-  const staticShifts = useMemo(
-    () => sortedShifts.filter((shift) => shift.id !== draggingId),
+  const staticSlotCount = useMemo(
+    () => sortedShifts.filter((shift) => shift.id !== draggingId).length,
     [draggingId, sortedShifts]
   );
 
@@ -87,7 +87,7 @@ export function ScheduleShiftCell({
       const index = computeInsertIndexFromPointer(containerRef.current, clientY);
       onDragOver(encodeDropTarget(cellKey, index));
     },
-    [cellKey, draggingId, onDragOver, readOnly]
+    [cellKey, onDragOver, readOnly]
   );
 
   const handleCellDragOver = useCallback(
@@ -126,40 +126,30 @@ export function ScheduleShiftCell({
       className={`flex flex-col gap-0.5 ${className}`}
     >
       {sortedShifts.map((shift) => {
-        if (shift.id === draggingId) {
-          return (
-            <div
-              key={shift.id}
-              data-shift-slot
-              data-shift-id={shift.id}
-              data-dragging="true"
-              className="transition-[opacity,transform] duration-150 ease-out opacity-35 scale-[0.98]"
-            >
-              <ShiftCard
-                shift={shift}
-                compact={compact}
-                readOnly={readOnly}
-                isDragging
-                onDragStart={onDragStart}
-                onDragEnd={onDragEnd}
-                onResize={onResize}
-                onEdit={onEditShift}
-              />
-            </div>
-          );
-        }
-
+        const isDragged = shift.id === draggingId;
         const nodes: ReactNode[] = [];
-        if (previewInsertIndex === staticSlot) {
+
+        if (!isDragged && previewInsertIndex === staticSlot) {
           nodes.push(<DropPlaceholder key={`placeholder-${shift.id}`} height={placeholderHeight} />);
         }
 
         nodes.push(
-          <div key={shift.id} data-shift-slot data-shift-id={shift.id}>
+          <div
+            key={shift.id}
+            data-shift-slot
+            data-shift-id={shift.id}
+            data-dragging={isDragged ? 'true' : undefined}
+            className={
+              isDragged
+                ? 'transition-[opacity,transform] duration-150 ease-out opacity-35 scale-[0.98]'
+                : undefined
+            }
+          >
             <ShiftCard
               shift={shift}
               compact={compact}
               readOnly={readOnly}
+              isDragging={isDragged}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               onResize={onResize}
@@ -168,11 +158,11 @@ export function ScheduleShiftCell({
           </div>
         );
 
-        staticSlot += 1;
+        if (!isDragged) staticSlot += 1;
         return <Fragment key={shift.id}>{nodes}</Fragment>;
       })}
 
-      {previewInsertIndex === staticShifts.length && previewInsertIndex !== undefined && (
+      {previewInsertIndex === staticSlotCount && previewInsertIndex !== undefined && draggingId && (
         <DropPlaceholder height={placeholderHeight} />
       )}
 
