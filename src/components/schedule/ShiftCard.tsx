@@ -122,6 +122,7 @@ export function ShiftCard({
         didDragRef.current = true;
         e.dataTransfer.setData('text/shift-id', shift.id);
         e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.dropEffect = 'move';
         onDragStart(shift.id);
       }}
       onDragEnd={() => {

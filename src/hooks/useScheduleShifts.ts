@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 import {
   getScheduleShifts,
@@ -32,6 +32,7 @@ export function useScheduleShifts(visibleDays: Date[]) {
   );
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
+  const draggingIdRef = useRef<string | null>(null);
   const [modalMode, setModalMode] = useState<ShiftModalMode | null>(null);
   const [editingShift, setEditingShift] = useState<ScheduleShift | null>(null);
   const [createDefaults, setCreateDefaults] = useState<{
@@ -62,17 +63,19 @@ export function useScheduleShifts(visibleDays: Date[]) {
   }, [refresh]);
 
   const handleDragStart = useCallback((shiftId: string) => {
-    requestAnimationFrame(() => {
-      setDraggingId(shiftId);
-    });
+    draggingIdRef.current = shiftId;
   }, []);
 
   const handleDragEnd = useCallback(() => {
+    draggingIdRef.current = null;
     setDraggingId(null);
     setDropTarget(null);
   }, []);
 
   const handleDragOver = useCallback((cellKey: string) => {
+    const activeId = draggingIdRef.current;
+    if (!activeId) return;
+    setDraggingId(activeId);
     setDropTarget(cellKey || null);
   }, []);
 
@@ -94,6 +97,7 @@ export function useScheduleShifts(visibleDays: Date[]) {
         insertBeforeShiftId ?? null
       );
       setShifts(filterVisibleShifts(updated, visibleDays));
+      draggingIdRef.current = null;
       setDraggingId(null);
       setDropTarget(null);
     },

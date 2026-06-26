@@ -138,12 +138,6 @@ export function ScheduleShiftCell({
             key={shift.id}
             data-shift-slot
             data-shift-id={shift.id}
-            data-dragging={isDragged ? 'true' : undefined}
-            className={
-              isDragged
-                ? 'transition-[opacity,transform] duration-150 ease-out opacity-35 scale-[0.98]'
-                : undefined
-            }
           >
             <ShiftCard
               shift={shift}
