@@ -1,5 +1,4 @@
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
-import { mockShifts } from '@/data/mockSchedule';
 import {
   calculateShiftHours,
   resizeShiftEnd,
@@ -96,32 +95,6 @@ function defaultShiftTypes(): ShiftType[] {
   return DEFAULT_SCHEDULE_SHIFT_TYPES.map((type) => ({ ...type }));
 }
 
-function defaultEmployees(): EmployeeRow[] {
-  return [
-    { id: 1, name: '민성재', position: 'manager', phone: '010-1234-0001', hireDate: '2022-03-01', status: 'working', hourlyWage: 11500 },
-    { id: 2, name: '김혜인', position: 'store-manager', phone: '010-1234-0002', hireDate: '2022-06-15', status: 'working', hourlyWage: 12000 },
-    { id: 3, name: '이유진', position: 'staff', phone: '010-1234-0003', hireDate: '2023-01-10', status: 'working', hourlyWage: 10400 },
-    { id: 4, name: '민정환', position: 'staff', phone: '010-1234-0004', hireDate: '2023-04-20', status: 'leave', hourlyWage: 10400 },
-    { id: 5, name: '김다현', position: 'staff', phone: '010-1234-0005', hireDate: '2023-07-01', status: 'working', hourlyWage: 10400 },
-    { id: 6, name: '김유진', position: 'staff', phone: '010-1234-0006', hireDate: '2023-08-15', status: 'working', hourlyWage: 10400 },
-    { id: 7, name: '김주현', position: 'staff', phone: '010-1234-0007', hireDate: '2023-09-01', status: 'leave', hourlyWage: 10400 },
-    { id: 8, name: '이준호', position: 'staff', phone: '010-1234-0008', hireDate: '2024-01-05', status: 'working', hourlyWage: 10400 },
-    { id: 9, name: '한태수', position: 'staff', phone: '010-1234-0009', hireDate: '2024-02-10', status: 'working', hourlyWage: 10400 },
-    { id: 10, name: '이예선', position: 'part-time', phone: '010-1234-0010', hireDate: '2024-03-01', status: 'leave', hourlyWage: 10030 },
-    { id: 11, name: '김지안', position: 'part-time', phone: '010-1234-0011', hireDate: '2024-04-15', status: 'working', hourlyWage: 10030 },
-    { id: 12, name: '박수빈', position: 'part-time', phone: '010-1234-0012', hireDate: '2024-05-01', status: 'working', hourlyWage: 10030 },
-    { id: 13, name: '안보연', position: 'part-time', phone: '010-1234-0013', hireDate: '2024-06-01', status: 'resigned', hourlyWage: 10030 },
-  ];
-}
-function defaultSchoolSchedules(): SchoolSchedule[] {
-  return [
-    { school: '○○고등학교', schedule: '6월 30일 ~ 7월 2일 시험' },
-    { school: '△△중학교', schedule: '7월 15일 ~ 8월 15일 방학' },
-    { school: '□□고등학교', schedule: '6월 20일 ~ 6월 22일 체험학습' },
-    { school: '◇◇중학교', schedule: '7월 1일 ~ 7월 3일 수련활동' },
-  ];
-}
-
 function createMinimalSeedData(): AppStorage {
   const shiftTypes = defaultShiftTypes();
   const schoolSchedules: SchoolSchedule[] = [];
@@ -130,25 +103,6 @@ function createMinimalSeedData(): AppStorage {
     employees: [],
     shiftTypes,
     scheduleShifts: [],
-    notices: [],
-    schoolSchedules,
-    actualWorkRecords: [],
-    payrollAdjustmentRecords: [],
-    inventoryItems: [],
-    purchaseOrders: [],
-    salesRecords: [],
-    appSettings: createDefaultAppSettings(shiftTypes, schoolSchedules),
-  };
-}
-
-function createDefaultData(): AppStorage {
-  const shiftTypes = defaultShiftTypes();
-  const schoolSchedules = defaultSchoolSchedules();
-  return {
-    version: STORAGE_VERSION,
-    employees: defaultEmployees(),
-    shiftTypes,
-    scheduleShifts: [...mockShifts],
     notices: [],
     schoolSchedules,
     actualWorkRecords: [],
@@ -185,7 +139,7 @@ function readStorage(): AppStorage {
   } catch {
     const backup = readLocalBackup();
     if (backup) {
-      return syncSettingsDerivedFields(normalizeAppStorage(backup, createDefaultData()));
+      return syncSettingsDerivedFields(normalizeAppStorage(backup, createMinimalSeedData()));
     }
     throw new Error('Data store is not initialized');
   }
@@ -218,7 +172,7 @@ export function exportAppBackup(): string {
 
 export function restoreAppBackup(json: string): AppStorage {
   const parsed = JSON.parse(json) as AppStorage;
-  const restored = normalizeAppStorage(parsed, createDefaultData());
+  const restored = normalizeAppStorage(parsed, createMinimalSeedData());
   writeStorage(restored);
   notifySettingsChanged();
   notifyEmployeesChanged();
@@ -230,7 +184,7 @@ export function restoreAppBackup(json: string): AppStorage {
 
 export async function initStorage(): Promise<void> {
   await initDataStore({
-    fallback: createDefaultData(),
+    fallback: createMinimalSeedData(),
     seed: createMinimalSeedData(),
   });
 }

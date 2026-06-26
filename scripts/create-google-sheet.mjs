@@ -26,26 +26,16 @@ if (!sheetId) {
   throw new Error('Failed to copy spreadsheet');
 }
 
-await sheets.spreadsheets.values.clear({
-  spreadsheetId: sheetId,
-  range: 'Employees!A:Z',
-});
-await sheets.spreadsheets.values.clear({
-  spreadsheetId: sheetId,
-  range: 'Schedule!A:Z',
-});
-await sheets.spreadsheets.values.clear({
-  spreadsheetId: sheetId,
-  range: 'Attendance!A:Z',
-});
-await sheets.spreadsheets.values.clear({
-  spreadsheetId: sheetId,
-  range: 'Payroll!A:Z',
-});
-await sheets.spreadsheets.values.clear({
-  spreadsheetId: sheetId,
-  range: 'Settings!A:Z',
-});
+for (const tab of ['Employees', 'Schedule', 'Attendance', 'Payroll', 'Settings']) {
+  try {
+    await sheets.spreadsheets.values.clear({
+      spreadsheetId: sheetId,
+      range: `${tab}!A:Z`,
+    });
+  } catch {
+    // tab may not exist yet — API will create on first save
+  }
+}
 
 console.log(
   JSON.stringify(

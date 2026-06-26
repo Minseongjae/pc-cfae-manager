@@ -1,6 +1,5 @@
 import { hashPassword } from '@/lib/appSettings';
 import { getAppSettings } from '@/lib/storage';
-
 import { APP_STORAGE_PREFIX } from '@/lib/appBrand';
 
 const SESSION_KEY = `${APP_STORAGE_PREFIX}-auth-session`;

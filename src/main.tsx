@@ -5,13 +5,11 @@ import { initStorage } from '@/lib/storage';
 import { registerPersistenceLifecycle } from '@/lib/dataStore';
 import { AppLoadingScreen } from '@/components/layout/AppLoadingScreen';
 import './index.css';
-import { getAppTitle } from '@/lib/appBrand';
 
 function Bootstrap() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    document.title = getAppTitle();
     const cleanupLifecycle = registerPersistenceLifecycle();
     initStorage()
       .then(() => setReady(true))
