@@ -1,0 +1,100 @@
+{
+  "name": "redforce-jongam-manager",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "레드포스 종암점 Manager - PC cafe management application",
+  "author": "레드포스 종암점",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently -k -n server,web -c green,blue \"npm run dev:server\" \"vite\"",
+    "dev:web": "vite",
+    "dev:server": "tsx server/index.ts",
+    "dev:all": "npm run dev",
+    "verify:sheets": "tsx scripts/verify-sheets.ts",
+    "verify:schedule-range": "tsx scripts/verify-schedule-range.ts",
+    "prepare:railway-env": "tsx scripts/prepare-railway-env.ts",
+    "write:railway-env": "tsx scripts/write-railway-dotenv.ts",
+    "build": "tsc && vite build",
+    "build:server": "tsc -p server/tsconfig.json",
+    "preview": "vite preview",
+    "start:server": "node dist-server/index.js",
+    "electron:compile": "tsc -p tsconfig.electron.json",
+    "electron": "npm run electron:compile && concurrently -k -n server,vite,electron -c green,blue,magenta \"npm run dev:server\" \"vite\" \"wait-on http://127.0.0.1:5173 && electron .\"",
+    "build-win": "npm run build && npm run electron:compile && electron-builder --win --x64",
+    "electron:build": "npm run build-win"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "googleapis": "^144.0.0",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vercel/node": "^5.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.redforce.jongam-manager",
+    "productName": "레드포스 종암점 Manager",
+    "copyright": "Copyright © 2026 레드포스 종암점",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "sign": false,
+      "signAndEditExecutable": false,
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "레드포스 종암점 Manager"
+    },
+    "portable": {
+      "artifactName": "${productName}-${version}-portable.${ext}"
+    }
+  }
+}

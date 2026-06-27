@@ -1,0 +1,211 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html,
+  body,
+  #root {
+    @apply h-full w-full m-0 p-0;
+  }
+
+  body {
+    @apply bg-stone-100 text-stone-700 font-sans antialiased overflow-hidden;
+    font-feature-settings: 'kern' 1, 'liga' 1;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-stone-300 rounded-full hover:bg-stone-400;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply bg-stone-100;
+  }
+
+  .card {
+    @apply bg-white rounded-2xl shadow-md border border-stone-200/50;
+  }
+
+  .card-elevated {
+    @apply bg-white rounded-2xl shadow-lg border border-white/80;
+  }
+
+  .page-header {
+    @apply bg-white/80 backdrop-blur-md border-b border-stone-200/60 shrink-0;
+  }
+
+  .btn-primary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5
+           bg-stone-800 text-white text-sm font-medium rounded-xl
+           hover:bg-stone-900 active:scale-[0.98]
+           transition-all duration-200 shadow-sm;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center gap-2 px-4 py-2.5
+           bg-white text-stone-600 text-sm font-medium rounded-xl
+           border border-stone-300 hover:bg-stone-50 hover:border-stone-300
+           transition-all duration-200;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center p-2 rounded-xl
+           text-stone-500 hover:text-stone-600 hover:bg-stone-200/60
+           transition-all duration-200;
+  }
+
+  .segment-control {
+    @apply flex items-center bg-stone-200/80 rounded-xl p-1 gap-0.5;
+  }
+
+  .segment-item {
+    @apply px-3.5 py-2 text-sm text-stone-500 rounded-lg transition-all duration-200;
+  }
+
+  .segment-item-active {
+    @apply bg-white text-stone-700 font-medium shadow-sm;
+  }
+
+  .input-luxury {
+    @apply w-full px-4 py-2.5 text-sm bg-stone-50 border border-stone-300/80 rounded-xl
+           text-stone-700 placeholder:text-stone-400
+           focus:outline-none focus:ring-2 focus:ring-stone-400/20 focus:border-stone-400
+           transition-all duration-200;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-3 w-full px-3 py-2.5 rounded-xl text-sm
+           text-stone-500 transition-all duration-200;
+  }
+
+  .nav-item-active {
+    @apply bg-stone-200 text-stone-700 font-medium shadow-sm;
+  }
+
+  .nav-item-inactive {
+    @apply hover:bg-stone-100 hover:text-stone-600;
+  }
+
+  .heading-display {
+    @apply font-display font-semibold tracking-wide text-stone-800;
+  }
+
+  .label-caps {
+    @apply text-[11px] font-medium uppercase tracking-widest text-stone-400;
+  }
+
+  .table-luxury thead {
+    @apply bg-stone-50/80;
+  }
+
+  .table-luxury th {
+    @apply text-left text-xs font-medium text-stone-500 px-4 py-3;
+  }
+
+  .table-luxury td {
+    @apply px-4 py-3.5 text-sm text-stone-600;
+  }
+
+  .table-luxury tbody tr {
+    @apply border-b border-stone-200/80 hover:bg-stone-50/50 transition-colors;
+  }
+
+  html.theme-dark body {
+    @apply bg-stone-900 text-stone-200;
+  }
+
+  html.theme-dark .app-shell,
+  html.theme-dark .page-header {
+    @apply bg-stone-900/95 border-stone-700 text-stone-200;
+  }
+
+  html.theme-dark .card,
+  html.theme-dark .card-elevated {
+    @apply bg-stone-800 border-stone-700 text-stone-200;
+  }
+
+  html.theme-dark .input-luxury {
+    @apply bg-stone-900 border-stone-600 text-stone-100;
+  }
+
+  html.theme-dark .btn-secondary {
+    @apply bg-stone-800 text-stone-200 border-stone-600;
+  }
+
+  html.theme-dark .nav-item-active {
+    @apply bg-stone-700 text-stone-100;
+  }
+
+  html.theme-dark .nav-item-inactive {
+    @apply text-stone-400 hover:bg-stone-800 hover:text-stone-200;
+  }
+
+  html[data-accent='amber'] .btn-primary {
+    @apply bg-amber-800 hover:bg-amber-900;
+  }
+
+  html[data-accent='emerald'] .btn-primary {
+    @apply bg-emerald-800 hover:bg-emerald-900;
+  }
+
+  .safe-top {
+    padding-top: max(0.75rem, env(safe-area-inset-top));
+  }
+
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom));
+  }
+
+  .touch-target {
+    @apply min-h-[44px] min-w-[44px];
+    touch-action: manipulation;
+  }
+
+  .touch-nav {
+    @apply min-h-[48px] py-3 md:min-h-0 md:py-2.5;
+    touch-action: manipulation;
+  }
+
+  .touch-segment {
+    @apply min-h-[44px] px-4 py-2.5 md:min-h-0 md:px-3.5 md:py-2;
+    touch-action: manipulation;
+  }
+
+  @media (max-width: 768px) {
+    .btn-primary {
+      @apply min-h-[44px] px-5 py-3 text-base;
+    }
+
+    .btn-secondary {
+      @apply min-h-[44px] px-5 py-3 text-base;
+    }
+
+    .btn-ghost {
+      @apply min-h-[44px] min-w-[44px] p-3;
+    }
+
+    .input-luxury {
+      @apply min-h-[44px] text-base py-3;
+    }
+
+    .segment-control {
+      @apply p-1.5;
+    }
+  }
+}

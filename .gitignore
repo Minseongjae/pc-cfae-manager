@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-electron
+dist-server
+release
+.env
+.env.local
+.env.railway.local
+credentials/
+!credentials/.gitkeep
+*.db
+*.log
+.vercel
