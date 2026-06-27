@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { NumericInput } from '@/components/ui/NumericInput';
+import { TimeInput } from '@/components/ui/TimeInput';
 import { useDataSync } from '@/contexts/DataSyncContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import type {
@@ -854,19 +855,17 @@ function ShiftTypesSection() {
                 />
               </Field>
               <Field label="기본 시작">
-                <input
-                  type="time"
+                <TimeInput
                   className="input-luxury touch-target"
                   value={row.defaultStartTime ?? '10:00'}
-                  onChange={(e) => updateById(row.id, { defaultStartTime: e.target.value })}
+                  onChange={(defaultStartTime) => updateById(row.id, { defaultStartTime })}
                 />
               </Field>
               <Field label="기본 종료">
-                <input
-                  type="time"
+                <TimeInput
                   className="input-luxury touch-target"
                   value={row.defaultEndTime ?? '14:00'}
-                  onChange={(e) => updateById(row.id, { defaultEndTime: e.target.value })}
+                  onChange={(defaultEndTime) => updateById(row.id, { defaultEndTime })}
                 />
               </Field>
             </div>

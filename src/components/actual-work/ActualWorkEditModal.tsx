@@ -3,6 +3,7 @@ import { X, Save } from 'lucide-react';
 import type { ActualWorkRecord } from '@/lib/actualWork';
 import { MODIFICATION_REASONS } from '@/lib/actualWork';
 import { ModalOverlay } from '@/components/ui/ModalOverlay';
+import { TimeInput } from '@/components/ui/TimeInput';
 
 interface ActualWorkEditModalProps {
   record: ActualWorkRecord;
@@ -80,10 +81,9 @@ export function ActualWorkEditModal({
             <label className="label-caps normal-case tracking-wide block mb-2">
               실제 시작
             </label>
-            <input
-              type="time"
+            <TimeInput
               value={actualStart}
-              onChange={(e) => setActualStart(e.target.value)}
+              onChange={setActualStart}
               className="input-luxury"
             />
           </div>
@@ -91,10 +91,9 @@ export function ActualWorkEditModal({
             <label className="label-caps normal-case tracking-wide block mb-2">
               실제 종료
             </label>
-            <input
-              type="time"
+            <TimeInput
               value={actualEnd}
-              onChange={(e) => setActualEnd(e.target.value)}
+              onChange={setActualEnd}
               className="input-luxury"
             />
           </div>

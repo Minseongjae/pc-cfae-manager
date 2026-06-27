@@ -7,6 +7,7 @@ import { useEmployees } from '@/contexts/EmployeesContext';
 import { getPositionLabel } from '@/lib/employees';
 import type { EmployeeRow } from '@/lib/storage';
 import { ModalOverlay } from '@/components/ui/ModalOverlay';
+import { TimeInput } from '@/components/ui/TimeInput';
 import {
   clampScheduleDay,
   getMaxDayInScheduleMonth,
@@ -203,10 +204,9 @@ export function ShiftModal({
             <label className="label-caps normal-case tracking-wide block mb-2">
               시작 시간
             </label>
-            <input
-              type="time"
+            <TimeInput
               value={startTime}
-              onChange={(e) => setStartTime(e.target.value)}
+              onChange={setStartTime}
               className="input-luxury"
               required
             />
@@ -215,10 +215,9 @@ export function ShiftModal({
             <label className="label-caps normal-case tracking-wide block mb-2">
               종료 시간
             </label>
-            <input
-              type="time"
+            <TimeInput
               value={endTime}
-              onChange={(e) => setEndTime(e.target.value)}
+              onChange={setEndTime}
               className="input-luxury"
               required
             />

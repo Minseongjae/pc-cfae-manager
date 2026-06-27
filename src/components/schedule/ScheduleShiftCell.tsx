@@ -138,6 +138,12 @@ export function ScheduleShiftCell({
             key={shift.id}
             data-shift-slot
             data-shift-id={shift.id}
+            data-dragging={isDragged ? 'true' : undefined}
+            className={
+              isDragged
+                ? 'transition-[opacity,transform] duration-150 ease-out opacity-35 scale-[0.98]'
+                : undefined
+            }
           >
             <ShiftCard
               shift={shift}
@@ -160,12 +166,16 @@ export function ScheduleShiftCell({
         <DropPlaceholder height={placeholderHeight} />
       )}
 
-      {cellShifts.length === 0 && onCreateInCell && !readOnly && (
+      {onCreateInCell && !readOnly && (
         <button
           type="button"
           onClick={() => onCreateInCell(day, row.id)}
-          style={{ minHeight: getEmptyCellMinHeightForShiftType(row) }}
-          className="w-full rounded-md border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target"
+          className="w-full rounded-md border border-dashed border-stone-300/40 md:border-stone-300/0 hover:border-stone-400/40 hover:bg-stone-50/80 text-stone-400 md:text-transparent hover:text-stone-400 text-xs transition-all md:opacity-0 md:group-hover/cell:opacity-100 touch-target shrink-0 py-1.5"
+          style={
+            cellShifts.length === 0
+              ? { minHeight: getEmptyCellMinHeightForShiftType(row) }
+              : undefined
+          }
         >
           + 추가
         </button>

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { formatNumericInput, parseNumericInput } from '@/lib/numericInput';
 
 interface NumericInputProps
@@ -9,13 +10,36 @@ interface NumericInputProps
   onChange: (value: number | null) => void;
 }
 
-export function NumericInput({ value, onChange, ...props }: NumericInputProps) {
+export function NumericInput({ value, onChange, onBlur, onFocus, ...props }: NumericInputProps) {
+  const [draft, setDraft] = useState('');
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) {
+      setDraft(formatNumericInput(value));
+    }
+  }, [focused, value]);
+
   return (
     <input
-      type="number"
       {...props}
-      value={formatNumericInput(value)}
-      onChange={(e) => onChange(parseNumericInput(e.target.value))}
+      type="text"
+      inputMode="numeric"
+      value={focused ? draft : formatNumericInput(value)}
+      onFocus={(event) => {
+        setFocused(true);
+        setDraft(formatNumericInput(value));
+        onFocus?.(event);
+      }}
+      onChange={(event) => {
+        const next = event.target.value.replace(/[^\d]/g, '');
+        setDraft(next);
+      }}
+      onBlur={(event) => {
+        setFocused(false);
+        onChange(parseNumericInput(draft));
+        onBlur?.(event);
+      }}
     />
   );
 }

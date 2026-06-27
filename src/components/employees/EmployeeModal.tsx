@@ -3,6 +3,7 @@ import { X, Trash2 } from 'lucide-react';
 import type { EmployeeInput, EmployeeRow } from '@/lib/storage';
 import type { EmployeeModalMode } from '@/contexts/EmployeesContext';
 import { ModalOverlay } from '@/components/ui/ModalOverlay';
+import { NumericInput } from '@/components/ui/NumericInput';
 import {
   getPositionOptions,
   STATUS_OPTIONS,
@@ -267,15 +268,14 @@ export function EmployeeModal({
               <label className="label-caps normal-case tracking-wide block mb-2">
                 시급 (원)
               </label>
-              <input
-                type="number"
+              <NumericInput
                 min={0}
                 step={10}
                 value={form.hourlyWage}
-                onChange={(e) =>
+                onChange={(hourlyWage) =>
                   setForm((prev) => ({
                     ...prev,
-                    hourlyWage: Number(e.target.value),
+                    hourlyWage: hourlyWage ?? 0,
                   }))
                 }
                 className="input-luxury"

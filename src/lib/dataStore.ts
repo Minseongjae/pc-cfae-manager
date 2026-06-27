@@ -214,6 +214,47 @@ function finalizeCache(data: AppStorage, options: { persistMigration?: boolean }
   }
 }
 
+function hasMeaningfulAppData(data: AppStorage): boolean {
+  return (
+    data.employees.length > 0 ||
+    data.scheduleShifts.length > 0 ||
+    data.actualWorkRecords.length > 0 ||
+    data.payrollAdjustmentRecords.length > 0 ||
+    data.inventoryItems.length > 0 ||
+    data.purchaseOrders.length > 0 ||
+    data.salesRecords.length > 0 ||
+    (data.notices?.length ?? 0) > 0
+  );
+}
+
+function countPayloadRecords(payload: RemoteDataPayload | Omit<RemoteDataPayload, 'syncToken'>) {
+  return {
+    employees: payload.employees.length,
+    scheduleShifts: payload.scheduleShifts.length,
+    actualWorkRecords: payload.actualWorkRecords.length,
+    payrollAdjustmentRecords: payload.payrollAdjustmentRecords.length,
+    inventoryItems: payload.inventoryItems?.length ?? 0,
+  };
+}
+
+function wouldWipeRemote(
+  local: Omit<RemoteDataPayload, 'syncToken'>,
+  remote: RemoteDataPayload
+): boolean {
+  const localCounts = countPayloadRecords(local);
+  const remoteCounts = countPayloadRecords(remote);
+
+  const pairs: Array<[number, number]> = [
+    [localCounts.employees, remoteCounts.employees],
+    [localCounts.scheduleShifts, remoteCounts.scheduleShifts],
+    [localCounts.actualWorkRecords, remoteCounts.actualWorkRecords],
+    [localCounts.payrollAdjustmentRecords, remoteCounts.payrollAdjustmentRecords],
+    [localCounts.inventoryItems, remoteCounts.inventoryItems],
+  ];
+
+  return pairs.some(([localCount, remoteCount]) => remoteCount >= 3 && localCount < remoteCount * 0.5);
+}
+
 function isRemoteEmpty(remote: RemoteDataPayload): boolean {
   return (
     remote.employees.length === 0 &&
@@ -338,7 +379,27 @@ async function pushNow(attempt = 0): Promise<void> {
   pushInFlight = true;
   setSyncState({ status: 'syncing', error: null });
   try {
-    const syncToken = await pushRemoteData(toRemotePayload(cache));
+    const remote = await fetchRemoteData();
+    const localPayload = toRemotePayload(cache);
+    if (wouldWipeRemote(localPayload, remote)) {
+      const previous = cache;
+      cache = enrichAttendance(fromRemotePayload(remote, cache));
+      writeLocalBackup(cache);
+      hasPendingPush = false;
+      setSyncState({
+        status: 'error',
+        error:
+          '데이터 손실 방지: 서버에 더 많은 데이터가 있어 로컬 변경을 취소하고 서버 데이터를 불러왔습니다. 새로고침 후 확인해 주세요.',
+        syncToken: remote.syncToken,
+        lastSyncAt: new Date().toISOString(),
+        isOnline: true,
+        hasLocalBackup: true,
+      });
+      dispatchDataEvents(previous, cache);
+      return;
+    }
+
+    const syncToken = await pushRemoteData(localPayload);
     if (retryTimer) {
       clearTimeout(retryTimer);
       retryTimer = null;
@@ -489,13 +550,24 @@ async function doInitDataStore({ fallback, seed }: InitDataStoreOptions): Promis
 
     if (isRemoteEmpty(remote)) {
       const localBackup = readLocalBackup();
-      if (localBackup) {
+      if (localBackup && hasMeaningfulAppData(localBackup)) {
         const normalized = normalizeAppStorage(localBackup, fallback);
         const syncToken = await pushRemoteData(toRemotePayload(normalized));
         remote = { ...toRemotePayload(normalized), syncToken };
       } else {
-        const syncToken = await pushRemoteData(toRemotePayload(seed));
-        remote = { ...toRemotePayload(seed), syncToken };
+        initialized = true;
+        const localSeed = enrichAttendance(normalizeAppStorage(seed, fallback));
+        finalizeCache(localSeed);
+        setSyncState({
+          status: 'idle',
+          syncToken: remote.syncToken,
+          lastSyncAt: new Date().toISOString(),
+          isOnline: true,
+          error: null,
+          hasLocalBackup: true,
+        });
+        startPolling();
+        return;
       }
     }
 

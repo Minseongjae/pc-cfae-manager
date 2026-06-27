@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Pencil, AlertTriangle, Check, X } from 'lucide-react';
+import { Plus, Pencil, AlertTriangle, Check, X, Type } from 'lucide-react';
 import { PageHeader } from '@/components/layout/PageHeader';
 import {
   deleteInventoryItem,
@@ -328,10 +328,16 @@ export function InventoryPage() {
                     <dd className="font-semibold text-stone-800">{item.minStock}</dd>
                   </div>
                 </dl>
-                <button type="button" className="btn-secondary w-full touch-target justify-center" onClick={() => openEdit(item)}>
-                  <Pencil size={15} />
-                  수정
+                <div className="flex flex-wrap gap-2">
+                <button type="button" className="btn-secondary flex-1 touch-target justify-center" onClick={() => startItemRename(item)}>
+                  <Type size={15} />
+                  이름 수정
                 </button>
+                <button type="button" className="btn-secondary flex-1 touch-target justify-center" onClick={() => openEdit(item)}>
+                  <Pencil size={15} />
+                  재고 수정
+                </button>
+              </div>
               </div>
             );
             })}
