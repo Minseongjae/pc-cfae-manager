@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { ScheduleHeader, type ViewMode } from '@/components/schedule/ScheduleHeader';
 import { ScheduleCalendar } from '@/components/schedule/ScheduleCalendar';
 import { ShiftModal } from '@/components/schedule/ShiftModal';
@@ -53,6 +53,12 @@ export function SchedulePage() {
     handleDragOver,
     handleDrop,
     handleResize,
+    handleCopyShift,
+    handleSelectPasteTarget,
+    handlePaste,
+    copiedShiftId,
+    clipboardLabel,
+    pasteTarget,
     openCreate,
     openEdit,
     closeModal,
@@ -96,12 +102,61 @@ export function SchedulePage() {
     handleResize(shiftId, deltaHours);
   };
 
+  const guardedCopy = (shift: ScheduleShift) => {
+    if (!isAdmin) return;
+    handleCopyShift(shift);
+  };
+
+  const guardedPasteTarget = (targetDate: Date, rowId: ShiftRowId) => {
+    if (!isAdmin) return;
+    handleSelectPasteTarget(targetDate, rowId);
+  };
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      const key = event.key.toLowerCase();
+      if (!(event.ctrlKey || event.metaKey)) return;
+
+      const target = event.target as HTMLElement;
+      if (
+        target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable
+      ) {
+        return;
+      }
+
+      if (key === 'c') {
+        return;
+      }
+
+      if (key === 'v') {
+        event.preventDefault();
+        handlePaste();
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isAdmin, handlePaste]);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {!isAdmin && (
         <div className="px-3 pt-2 md:px-6 md:pt-3 shrink-0">
           <p className="text-[11px] md:text-xs text-stone-500 bg-stone-100/80 border border-stone-200 rounded-xl px-3 py-1.5 md:py-2">
             조회 전용 · 수정은 관리자 인증 필요
+          </p>
+        </div>
+      )}
+
+      {isAdmin && clipboardLabel && (
+        <div className="px-3 md:px-6 shrink-0">
+          <p className="text-[11px] md:text-xs text-sky-700 bg-sky-50 border border-sky-200 rounded-xl px-3 py-1.5">
+            복사됨: {clipboardLabel} · 붙여넣을 칸을 클릭한 뒤 <kbd className="font-mono text-[10px]">Ctrl+V</kbd>
           </p>
         </div>
       )}
@@ -133,6 +188,10 @@ export function SchedulePage() {
         onResize={guardedResize}
         onEditShift={guardedEdit}
         onCreateInCell={(targetDate, rowId) => guardedCreate({ targetDate, rowId })}
+        onCopyShift={guardedCopy}
+        onSelectPasteTarget={guardedPasteTarget}
+        copiedShiftId={copiedShiftId}
+        pasteTarget={pasteTarget}
         readOnly={!isAdmin}
       />
 

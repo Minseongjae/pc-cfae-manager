@@ -12,12 +12,15 @@ import { GripHorizontal } from 'lucide-react';
 interface ShiftCardProps {
   shift: ScheduleShift;
   isDragging?: boolean;
+  isCopied?: boolean;
   readOnly?: boolean;
   compact?: boolean;
+  stacked?: boolean;
   onDragStart: (shiftId: string) => void;
   onDragEnd: () => void;
   onResize: (shiftId: string, deltaHours: number) => void;
   onEdit: (shift: ScheduleShift) => void;
+  onCopy?: (shift: ScheduleShift) => void;
 }
 
 const RESIZE_PX_PER_HOUR = 18;
@@ -26,12 +29,15 @@ const CLICK_MOVE_THRESHOLD = 5;
 export function ShiftCard({
   shift,
   isDragging,
+  isCopied = false,
   readOnly = false,
   compact = false,
+  stacked = false,
   onDragStart,
   onDragEnd,
   onResize,
   onEdit,
+  onCopy,
 }: ShiftCardProps) {
   const { beginDrag, endDrag } = useDragGuard();
   const { employees } = useEmployees();
@@ -52,11 +58,12 @@ export function ShiftCard({
         employee,
         settings.positions,
         settings.schedule.scheduleColorMode ?? 'employee',
-        compact
+        compact,
+        stacked
       ),
       workedHours: hours,
     };
-  }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode, compact]);
+  }, [employees, shift, shiftTypes, settings.positions, settings.schedule.scheduleColorMode, compact, stacked]);
   const resizeRef = useRef<{ startY: number; accumulated: number } | null>(null);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const didDragRef = useRef(false);
@@ -105,6 +112,11 @@ export function ShiftCard({
       return;
     }
 
+    if ((event.ctrlKey || event.metaKey) && onCopy) {
+      onCopy(shift);
+      return;
+    }
+
     const dx = Math.abs(event.clientX - start.x);
     const dy = Math.abs(event.clientY - start.y);
     if (dx > CLICK_MOVE_THRESHOLD || dy > CLICK_MOVE_THRESHOLD) return;
@@ -122,7 +134,6 @@ export function ShiftCard({
         didDragRef.current = true;
         e.dataTransfer.setData('text/shift-id', shift.id);
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.dropEffect = 'move';
         onDragStart(shift.id);
       }}
       onDragEnd={() => {
@@ -136,7 +147,10 @@ export function ShiftCard({
         compact ? 'rounded-md px-1 py-0.5 leading-tight' : 'rounded-md px-1.5 py-1 leading-snug'
       } ${
         readOnly ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'
-      } ${isDragging ? 'shadow-sm' : 'opacity-100'}`}
+      } ${isDragging ? 'shadow-sm' : 'opacity-100'} ${
+        isCopied ? 'ring-2 ring-sky-500 ring-offset-1' : ''
+      }`}
+      title={!readOnly && onCopy ? 'Ctrl+클릭: 복사 · 클릭: 수정' : undefined}
     >
       {!readOnly && !compact && (
       <div
@@ -153,9 +167,7 @@ export function ShiftCard({
       </div>
       <div className={`font-medium truncate ${compact ? 'text-[11px] opacity-90' : 'text-xs opacity-90'}`}>
         {shift.startTime}–{shift.endTime}
-        {!compact && (
-          <span className="opacity-80"> · {formatWorkedHoursDisplay(workedHours)}h</span>
-        )}
+        <span className="opacity-80"> · {formatWorkedHoursDisplay(workedHours)}h</span>
       </div>
     </div>
   );

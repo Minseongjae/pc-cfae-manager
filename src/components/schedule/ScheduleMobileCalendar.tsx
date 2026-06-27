@@ -22,6 +22,8 @@ import {
   KOREAN_WEEKDAYS,
 } from '@/lib/koreanHolidays';
 import { getShiftCardStyle } from '@/lib/shiftDisplay';
+import { getRowMinHeightForShiftType } from '@/lib/shiftUtils';
+import type { SchedulePasteTarget } from '@/lib/scheduleClipboard';
 import { findEmployeeByShiftName } from '@/lib/payroll';
 import { useEmployees } from '@/contexts/EmployeesContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -41,6 +43,10 @@ interface ScheduleMobileCalendarProps {
   onResize?: (shiftId: string, deltaHours: number) => void;
   onEditShift: (shift: ScheduleShift) => void;
   onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
+  onCopyShift?: (shift: ScheduleShift) => void;
+  onSelectPasteTarget?: (targetDate: Date, rowId: ShiftRowId) => void;
+  copiedShiftId?: string | null;
+  pasteTarget?: SchedulePasteTarget | null;
 }
 
 /** Minimum height per day cell in month grid (px). */
@@ -295,6 +301,10 @@ function WeekGrid({
   onResize,
   onEditShift,
   onCreateInCell,
+  onCopyShift,
+  onSelectPasteTarget,
+  copiedShiftId,
+  pasteTarget,
 }: {
   days: Date[];
   shifts: ScheduleShift[];
@@ -309,6 +319,10 @@ function WeekGrid({
   onResize?: (shiftId: string, deltaHours: number) => void;
   onEditShift: (shift: ScheduleShift) => void;
   onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
+  onCopyShift?: (shift: ScheduleShift) => void;
+  onSelectPasteTarget?: (targetDate: Date, rowId: ShiftRowId) => void;
+  copiedShiftId?: string | null;
+  pasteTarget?: SchedulePasteTarget | null;
 }) {
   const shiftsByDayAndRow = useMemo(() => {
     const map = new Map<string, ScheduleShift[]>();
@@ -350,8 +364,10 @@ function WeekGrid({
             })}
           </div>
 
-          {shiftTypes.map((row) => (
-            <div key={row.id} className="flex items-stretch border-b-2 border-stone-200">
+          {shiftTypes.map((row) => {
+            const rowMinHeight = getRowMinHeightForShiftType(row);
+            return (
+            <div key={row.id} className="flex items-stretch border-b-2 border-stone-200" style={{ minHeight: rowMinHeight }}>
               <div
                 className="w-[56px] shrink-0 flex items-start justify-center px-0.5 pt-1.5 pb-1 border-r border-stone-100 bg-stone-50/50"
                 style={{ color: row.color }}
@@ -366,10 +382,16 @@ function WeekGrid({
                 const today = isToday(day);
                 const isDropTarget = dropTarget?.startsWith(key) && draggingId != null;
 
+                const isCellPasteTarget =
+                  pasteTarget?.year === day.getFullYear() &&
+                  pasteTarget.month === day.getMonth() + 1 &&
+                  pasteTarget.day === day.getDate() &&
+                  pasteTarget.rowId === row.id;
+
                 return (
                   <div
                     key={key}
-                    style={{ minWidth: WEEK_COL_MIN_WIDTH }}
+                    style={{ minWidth: WEEK_COL_MIN_WIDTH, minHeight: rowMinHeight }}
                     className={`flex-1 border-r border-stone-50 last:border-r-0 p-0.5 min-h-0 overflow-hidden border-b-2 border-stone-200 ${cellBgClasses(day, today, true, false)} ${
                       isDropTarget ? 'ring-2 ring-inset ring-amber-400/50' : ''
                     }`}
@@ -390,12 +412,17 @@ function WeekGrid({
                       onResize={onResize ?? (() => {})}
                       onEditShift={onEditShift}
                       onCreateInCell={onCreateInCell}
+                      onCopyShift={onCopyShift}
+                      onSelectPasteTarget={onSelectPasteTarget}
+                      copiedShiftId={copiedShiftId}
+                      isPasteTarget={isCellPasteTarget}
                     />
                   </div>
                 );
               })}
             </div>
-          ))}
+          );
+          })}
         </div>
       </div>
     </div>
@@ -416,6 +443,10 @@ export function ScheduleMobileCalendar({
   onResize,
   onEditShift,
   onCreateInCell,
+  onCopyShift,
+  onSelectPasteTarget,
+  copiedShiftId,
+  pasteTarget,
 }: ScheduleMobileCalendarProps) {
   const shiftTypes = useScheduleShiftTypes();
   const { settings } = useSettings();
@@ -472,6 +503,10 @@ export function ScheduleMobileCalendar({
           onResize={onResize}
           onEditShift={onEditShift}
           onCreateInCell={onCreateInCell}
+          onCopyShift={onCopyShift}
+          onSelectPasteTarget={onSelectPasteTarget}
+          copiedShiftId={copiedShiftId}
+          pasteTarget={pasteTarget}
         />
       )}
 

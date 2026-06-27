@@ -821,6 +821,21 @@ export function createShift(input: ShiftInput): ScheduleShift[] {
   return getScheduleShifts();
 }
 
+export function pasteShiftFromClipboard(
+  target: { year: number; month: number; day: number; rowId: ShiftRowId },
+  template: { name: string; startTime: string; endTime: string }
+): ScheduleShift[] {
+  return createShift({
+    year: target.year,
+    month: target.month,
+    day: target.day,
+    rowId: target.rowId,
+    name: template.name,
+    startTime: template.startTime,
+    endTime: template.endTime,
+  });
+}
+
 export function updateShift(shiftId: string, input: ShiftInput): ScheduleShift[] {
   const data = readStorage();
   const updated = data.scheduleShifts.map((s) => {

@@ -118,13 +118,26 @@ export function getShiftTypeRowProfile(shiftType: ShiftType): ShiftTypeRowProfil
   };
 }
 
+/** Target stacked cards per cell (2-person slots). */
+export const SCHEDULE_STACK_TARGET = 2;
+export const SCHEDULE_CARD_GAP = 2;
+
+/** Fixed compact card height for calendar stack layout. */
+export function getScheduleCompactCardHeight(): number {
+  return getShiftCardHeight(4, true);
+}
+
 export function getRowMinHeightForShiftType(_shiftType?: ShiftType): number {
-  const shortCard = getShiftCardHeight(4, false);
-  return shortCard * SCHEDULE_STACK_TARGET + SCHEDULE_CARD_GAP * (SCHEDULE_STACK_TARGET - 1) + 10;
+  const card = getScheduleCompactCardHeight();
+  return (
+    card * SCHEDULE_STACK_TARGET +
+    SCHEDULE_CARD_GAP * (SCHEDULE_STACK_TARGET - 1) +
+    28
+  );
 }
 
 export function getEmptyCellMinHeightForShiftType(_shiftType?: ShiftType): number {
-  return getShiftCardHeight(4, false) + 4;
+  return getRowMinHeightForShiftType(_shiftType) - 24;
 }
 
 /** Actual worked hours — prefer start/end times over stored duration label. */
@@ -140,16 +153,12 @@ export function getShiftWorkedHours(shift: {
   return parseShiftDurationHours(shift.duration);
 }
 
-/** Target stacked cards per cell (오전/오후/미들/야간 +1). */
-export const SCHEDULE_STACK_TARGET = 4;
-export const SCHEDULE_CARD_GAP = 2;
-
 /** Card height grows linearly with hours — fixed height, clearly distinguishable. */
 export function getShiftCardHeight(hours: number, compact = false): number {
   const h = Math.max(hours, 1);
   const base = compact ? 20 : 26;
   const pxPerHour = compact ? 5 : 10;
-  const max = compact ? 46 : 120;
+  const max = compact ? 42 : 120;
   return Math.min(Math.round(base + h * pxPerHour), max);
 }
 

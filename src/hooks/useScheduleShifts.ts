@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import type { ScheduleShift, ShiftRowId } from '@/data/mockSchedule';
 import {
   getScheduleShifts,
@@ -8,6 +8,7 @@ import {
   createShift as createShiftInStorage,
   updateShift as updateShiftInStorage,
   deleteShift as deleteShiftInStorage,
+  pasteShiftFromClipboard,
   type ShiftInput,
 } from '@/lib/storage';
 import { EMPLOYEES_CHANGED_EVENT } from '@/lib/employees';
@@ -15,6 +16,11 @@ import { DATA_SYNC_CHANGED_EVENT, SCHEDULES_CHANGED_EVENT } from '@/lib/dataStor
 import type { ShiftModalMode } from '@/components/schedule/ShiftModal';
 import { dateToScheduleParts, isDateWithinScheduleRange, shiftMatchesDay } from '@/lib/scheduleViewRange';
 import { isScheduleDateAllowed } from '@/lib/scheduleDateRange';
+import {
+  copyScheduleEntry,
+  readScheduleClipboard,
+  type SchedulePasteTarget,
+} from '@/lib/scheduleClipboard';
 
 function filterVisibleShifts(shifts: ScheduleShift[], visibleDays: Date[]): ScheduleShift[] {
   if (visibleDays.length === 0) return [];
@@ -32,7 +38,6 @@ export function useScheduleShifts(visibleDays: Date[]) {
   );
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
-  const draggingIdRef = useRef<string | null>(null);
   const [modalMode, setModalMode] = useState<ShiftModalMode | null>(null);
   const [editingShift, setEditingShift] = useState<ScheduleShift | null>(null);
   const [createDefaults, setCreateDefaults] = useState<{
@@ -41,6 +46,12 @@ export function useScheduleShifts(visibleDays: Date[]) {
     day: number;
     rowId: ShiftRowId;
   } | null>(null);
+  const [copiedShiftId, setCopiedShiftId] = useState<string | null>(null);
+  const [clipboardLabel, setClipboardLabel] = useState<string | null>(() => {
+    const clip = readScheduleClipboard();
+    return clip ? `${clip.name} (${clip.startTime}–${clip.endTime})` : null;
+  });
+  const [pasteTarget, setPasteTarget] = useState<SchedulePasteTarget | null>(null);
 
   const refresh = useCallback(() => {
     setShifts(filterVisibleShifts(getScheduleShifts(), visibleDays));
@@ -63,19 +74,17 @@ export function useScheduleShifts(visibleDays: Date[]) {
   }, [refresh]);
 
   const handleDragStart = useCallback((shiftId: string) => {
-    draggingIdRef.current = shiftId;
+    requestAnimationFrame(() => {
+      setDraggingId(shiftId);
+    });
   }, []);
 
   const handleDragEnd = useCallback(() => {
-    draggingIdRef.current = null;
     setDraggingId(null);
     setDropTarget(null);
   }, []);
 
   const handleDragOver = useCallback((cellKey: string) => {
-    const activeId = draggingIdRef.current;
-    if (!activeId) return;
-    setDraggingId(activeId);
     setDropTarget(cellKey || null);
   }, []);
 
@@ -97,7 +106,6 @@ export function useScheduleShifts(visibleDays: Date[]) {
         insertBeforeShiftId ?? null
       );
       setShifts(filterVisibleShifts(updated, visibleDays));
-      draggingIdRef.current = null;
       setDraggingId(null);
       setDropTarget(null);
     },
@@ -111,6 +119,28 @@ export function useScheduleShifts(visibleDays: Date[]) {
     },
     [visibleDays]
   );
+
+  const handleCopyShift = useCallback((shift: ScheduleShift) => {
+    const entry = copyScheduleEntry(shift);
+    setCopiedShiftId(shift.id);
+    setClipboardLabel(`${entry.name} (${entry.startTime}–${entry.endTime})`);
+  }, []);
+
+  const handleSelectPasteTarget = useCallback((targetDate: Date, rowId: ShiftRowId) => {
+    const { year, month, day } = dateToScheduleParts(targetDate);
+    setPasteTarget({ year, month, day, rowId });
+  }, []);
+
+  const handlePaste = useCallback(() => {
+    const clip = readScheduleClipboard();
+    if (!clip || !pasteTarget) return false;
+    if (!isScheduleDateAllowed(pasteTarget.year, pasteTarget.month, pasteTarget.day)) {
+      return false;
+    }
+    const updated = pasteShiftFromClipboard(pasteTarget, clip);
+    setShifts(filterVisibleShifts(updated, visibleDays));
+    return true;
+  }, [pasteTarget, visibleDays]);
 
   const openCreate = useCallback((defaults?: { targetDate: Date; rowId: ShiftRowId }) => {
     const targetDate = defaults?.targetDate ?? new Date();
@@ -166,11 +196,17 @@ export function useScheduleShifts(visibleDays: Date[]) {
     modalMode,
     editingShift,
     createDefaults,
+    copiedShiftId,
+    clipboardLabel,
+    pasteTarget,
     handleDragStart,
     handleDragEnd,
     handleDragOver,
     handleDrop,
     handleResize,
+    handleCopyShift,
+    handleSelectPasteTarget,
+    handlePaste,
     openCreate,
     openEdit,
     closeModal,

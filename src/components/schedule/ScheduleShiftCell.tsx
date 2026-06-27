@@ -27,6 +27,10 @@ interface ScheduleShiftCellProps {
   onResize: (shiftId: string, deltaHours: number) => void;
   onEditShift: (shift: ScheduleShift) => void;
   onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
+  onCopyShift?: (shift: ScheduleShift) => void;
+  onSelectPasteTarget?: (targetDate: Date, rowId: ShiftRowId) => void;
+  copiedShiftId?: string | null;
+  isPasteTarget?: boolean;
 }
 
 function DropPlaceholder({ height }: { height: number }) {
@@ -56,6 +60,10 @@ export function ScheduleShiftCell({
   onResize,
   onEditShift,
   onCreateInCell,
+  onCopyShift,
+  onSelectPasteTarget,
+  copiedShiftId,
+  isPasteTarget = false,
 }: ScheduleShiftCellProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -123,7 +131,13 @@ export function ScheduleShiftCell({
       ref={containerRef}
       onDragOver={handleCellDragOver}
       onDrop={handleCellDrop}
-      className={`flex flex-col gap-0.5 ${className}`}
+      onMouseDown={(event) => {
+        if (readOnly || !onSelectPasteTarget) return;
+        const target = event.target as HTMLElement;
+        if (target.closest('[data-shift-slot]') || target.closest('button')) return;
+        onSelectPasteTarget(day, row.id);
+      }}
+      className={`flex flex-col gap-0.5 min-h-0 ${isPasteTarget ? 'ring-2 ring-inset ring-sky-400/50 rounded-md' : ''} ${className}`}
     >
       {sortedShifts.map((shift) => {
         const isDragged = shift.id === draggingId;
@@ -147,13 +161,16 @@ export function ScheduleShiftCell({
           >
             <ShiftCard
               shift={shift}
-              compact={compact}
+              compact
+              stacked
               readOnly={readOnly}
               isDragging={isDragged}
+              isCopied={copiedShiftId === shift.id}
               onDragStart={onDragStart}
               onDragEnd={onDragEnd}
               onResize={onResize}
               onEdit={onEditShift}
+              onCopy={onCopyShift}
             />
           </div>
         );

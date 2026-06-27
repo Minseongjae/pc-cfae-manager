@@ -17,6 +17,8 @@ import { scheduleDateKey, shiftMatchesDay } from '@/lib/scheduleViewRange';
 import { ScheduleShiftCell } from '@/components/schedule/ScheduleShiftCell';
 import { sortShiftsInCell } from '@/lib/scheduleShiftOrder';
 import { ScheduleMobileCalendar } from '@/components/schedule/ScheduleMobileCalendar';
+import { getRowMinHeightForShiftType } from '@/lib/shiftUtils';
+import type { SchedulePasteTarget } from '@/lib/scheduleClipboard';
 
 interface ScheduleCalendarProps {
   days: Date[];
@@ -31,6 +33,10 @@ interface ScheduleCalendarProps {
   onResize: (shiftId: string, deltaHours: number) => void;
   onEditShift: (shift: ScheduleShift) => void;
   onCreateInCell?: (targetDate: Date, rowId: ShiftRowId) => void;
+  onCopyShift?: (shift: ScheduleShift) => void;
+  onSelectPasteTarget?: (targetDate: Date, rowId: ShiftRowId) => void;
+  copiedShiftId?: string | null;
+  pasteTarget?: SchedulePasteTarget | null;
   readOnly?: boolean;
 }
 
@@ -99,6 +105,10 @@ export function ScheduleCalendar({
   onResize,
   onEditShift,
   onCreateInCell,
+  onCopyShift,
+  onSelectPasteTarget,
+  copiedShiftId,
+  pasteTarget,
   readOnly = false,
 }: ScheduleCalendarProps) {
   const isMobile = useIsMobile();
@@ -123,6 +133,10 @@ export function ScheduleCalendar({
           onResize={onResize}
           onEditShift={onEditShift}
           onCreateInCell={onCreateInCell}
+          onCopyShift={onCopyShift}
+          onSelectPasteTarget={onSelectPasteTarget}
+          copiedShiftId={copiedShiftId}
+          pasteTarget={pasteTarget}
         />
       </div>
     );
@@ -213,13 +227,14 @@ export function ScheduleCalendar({
 
             {shiftTypes.map((row, rowIndex) => {
               const gridRow = rowIndex + 2;
+              const rowMinHeight = getRowMinHeightForShiftType(row);
 
               return (
                 <Fragment key={row.id}>
                   <div
                     key={`label-${row.id}`}
                     className="sticky left-0 z-10 border-r border-b-2 border-stone-300 bg-stone-50 flex items-start justify-center px-1.5 pt-2 pb-2 min-h-0"
-                    style={{ gridColumn: 1, gridRow }}
+                    style={{ gridColumn: 1, gridRow, minHeight: rowMinHeight }}
                   >
                     <span
                       className="text-[10px] md:text-[11px] font-bold leading-snug text-center break-keep"
@@ -239,10 +254,16 @@ export function ScheduleCalendar({
                     const isDropTarget = dropTarget?.startsWith(cellKey) && draggingId !== null;
                     const today = isToday(day);
 
+                    const isCellPasteTarget =
+                      pasteTarget?.year === year &&
+                      pasteTarget.month === month &&
+                      pasteTarget.day === dayNum &&
+                      pasteTarget.rowId === row.id;
+
                     return (
                       <div
                         key={cellKey}
-                        style={{ gridColumn: dayIndex + 2, gridRow }}
+                        style={{ gridColumn: dayIndex + 2, gridRow, minHeight: rowMinHeight }}
                         className={`border-r border-b-2 border-stone-300 p-0.5 min-h-0 overflow-hidden group/cell ${cellBackgroundClasses(day, today)} ${
                           today ? 'ring-1 ring-inset ring-stone-700/15' : ''
                         } ${isDropTarget ? 'bg-amber-500/10 ring-2 ring-inset ring-amber-400/40' : ''}`}
@@ -262,6 +283,10 @@ export function ScheduleCalendar({
                           onResize={onResize}
                           onEditShift={onEditShift}
                           onCreateInCell={onCreateInCell}
+                          onCopyShift={onCopyShift}
+                          onSelectPasteTarget={onSelectPasteTarget}
+                          copiedShiftId={copiedShiftId}
+                          isPasteTarget={isCellPasteTarget}
                         />
                       </div>
                     );

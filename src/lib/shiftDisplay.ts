@@ -7,7 +7,7 @@ import {
   EMPLOYEE_CARD_CLASSES,
   resolveEmployeeScheduleColor,
 } from '@/lib/employeeColors';
-import { getShiftCardHeightFromShift } from '@/lib/shiftUtils';
+import { getShiftCardHeightFromShift, getScheduleCompactCardHeight } from '@/lib/shiftUtils';
 import { shiftTypeCardStyle } from '@/lib/scheduleShiftTypes';
 import type { ShiftType } from '@/types';
 
@@ -44,7 +44,8 @@ export function getShiftCardStyle(
   employee?: Pick<EmployeeRow, 'id' | 'position' | 'status'>,
   positions?: PositionDefinition[],
   colorMode: ScheduleColorMode = 'employee',
-  compact = false
+  compact = false,
+  stacked = false
 ): CSSProperties {
   let colorStyle: CSSProperties;
 
@@ -62,7 +63,9 @@ export function getShiftCardStyle(
     colorStyle = shiftTypeCardStyle('#9CA3AF');
   }
 
-  const cardHeight = getShiftCardHeightFromShift(shift, compact);
+  const cardHeight = stacked
+    ? getScheduleCompactCardHeight()
+    : getShiftCardHeightFromShift(shift, compact);
 
   return {
     ...colorStyle,
